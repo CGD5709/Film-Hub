@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Guia de Gestion de Incidencias de Film-Hub
+    url: https://github.com/Film-Hub/filmhub/blob/trunk/docs/guia_gestion_y_depuracion_incidencias.md
+    about: Consulta la metodologia de 4 fases antes de reportar un defecto.
+
