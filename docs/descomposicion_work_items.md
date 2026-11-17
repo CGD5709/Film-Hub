@@ -1,145 +1,141 @@
-# Descomposicion Tecnica de Work Items y Planificacion de Tareas
+# Descomposición Técnica de Work Items y Reparto Equitativo
 
-Este documento recoge la descomposicion tecnica, criterios de aceptacion y planificacion de los **6 Work Items (WIs)** seleccionados para el equipo de 4 integrantes de **Film-Hub**, conforme a la normativa docente oficial de **EGC (2026/2027)**.
-
----
-
-## Matriz de Asignacion de Work Items
-
-| ID Issue | Titulo del Work Item | Dificultad | Responsable Principal | Revisor Tecnico | Area de Impacto |
-| :---: | :--- | :---: | :--- | :--- | :--- |
-| **#177** | **WI-fakenodo**: Servicio simulador de Zenodo | **Mandatory** | Luis Lucena Prieto | Jose Vicente Sanchez | Mock API / Docker / Infraestructura |
-| **#178** | **WI-newdataset**: Adaptacion a Film-Hub (CSV) | **Mandatory** | Juan Felipe Pardo Carrillo | Adrian Munoz Aradilla | Core Datasets / Validador / Rosemary |
-| **#188** | **Admin roles** (admin, curator, user) | **Medium** | Jose Vicente Sanchez Montilla | Juan Felipe Pardo Carrillo | Modulo Auth / Migracion BD / Decorador |
-| **#213** | **Embeddable badge** (SVG / Markdown / HTML) | **Medium** | Adrian Munoz Aradilla | Luis Lucena Prieto | Endpoints SVG / UI Component / Assets |
-| **#200** | **Two-factor authentication** (2FA / TOTP) | **High** | Juan Felipe Pardo Carrillo | Jose Vicente Sanchez Montilla | Seguridad / PyOTP / QR / Login Flow |
-| **#202** | **Active session management** (Auditoria/Cierre)| **High** | Luis Lucena Prieto | Adrian Munoz Aradilla | Sesiones / SQLAlchemy / Tokens / Middleware |
+Este documento recoge la descomposición técnica, asignación de tareas, revisores y criterios de aceptación de los **6 Work Items (WIs)** de **Film-Hub**, conforme a la normativa de **EGC (2026/2027)** para equipos de 4 integrantes.
 
 ---
 
-## 1. WI-fakenodo (#177 - Obligatorio Comun)
+## Principios de Reparto y Flujo sin Pull Requests Internas
 
-### 1.1. Descripcion y Alcance
-Desarrollo de un servicio mock ligero que emula los endpoints de la API de Zenodo requeridos por la plataforma uvlhub. Su implementacion desacopla el desarrollo y la ejecucion de pruebas de la disponibilidad del sandbox de Zenodo y de credenciales reales.
-
-### 1.2. Contrato de Endpoints a Emular
-- `POST /api/deposit/depositions`: Creacion de una deposicion y retorno de identificadores de subida.
-- `POST /api/deposit/depositions/{id}/files`: Recepcion y almacenamiento de ficheros asociados.
-- `POST /api/deposit/depositions/{id}/actions/publish`: Publicacion formal y asignacion de identificador DOI (`10.5281/zenodo.filmhub.<id>`).
-- `GET /api/deposit/depositions/{id}`: Consulta de estado y metadatos de la deposicion.
-- `DELETE /api/deposit/depositions/{id}`: Eliminacion de borradores no publicados.
-
-### 1.3. Descomposicion en Tareas Tecnicas
-- [ ] Tarea 1.1: Definicion de contratos de peticion y respuesta basados en la API oficial de Zenodo.
-- [ ] Tarea 1.2: Implementacion de la aplicacion ligera de servicio en Fakenodo.
-- [ ] Tarea 1.3: Integracion de Fakenodo en `docker/docker-compose.dev.yml` en puerto dedicado.
-- [ ] Tarea 1.4: Parametrizacion de `ZENODO_API_URL` para conmutacion transparente en `.env`.
-- [ ] Tarea 1.5: Pruebas automatizadas de contrato HTTP sobre los endpoints simulados.
-
-### 1.4. Criterios de Aceptacion
-- Dado que el servicio Fakenodo esta iniciado en el entorno Docker.
-- Cuando la aplicacion solicita la publicacion de un dataset validado.
-- Entonces Fakenodo responde con codigo HTTP 201 y asigna un DOI simulado consistente.
-- Y la deposicion queda registrada en el estado publicado.
+1. **Participación Universal por Complejidad**: Todos los integrantes participan activamente en la resolución de las **2 issues obligatorias (#177, #178)**, las **2 issues Medium (#188, #213)** y las **2 issues High (#200, #202)**, ejecutando 1 tarea atómica y ejerciendo 1 revisión técnica en cada Work Item (6 tareas ejecutadas y 6 revisadas por persona).
+2. **Alineación con Roles SuperPOP**:
+   - **José Vicente Sánchez Montilla (PM)**: Gobernanza, contratos de API, flujos de negocio, comandos de gestión y coordinación.
+   - **Luis Lucena Prieto (DevOps / Backend)**: Infraestructura Docker, middleware, modelos de sesiones, cabeceras HTTP y CLI Rosemary.
+   - **Juan Felipe Pardo Carrillo (QA / Backend)**: Validadores, núcleo de seguridad TOTP, pruebas unitarias/integración y suites de regresión.
+   - **Adrián Muñoz Aradilla (Frontend / UI-UX)**: Vistas Jinja2, componentes interactivos, plantillas vectoriales SVG y experiencia de usuario.
+3. **Revisión por Pares Pre-Merge (Sin PRs Internas)**: Al estar prohibidas las Pull Requests dentro del mismo equipo en EGCFlow, la revisión técnica se realiza **antes del merge local a `trunk`** mediante inspección del `git diff` (presencial o por Discord) junto al revisor asignado. Tras la aprobación, el autor fusiona con Git CLI directamente sobre `trunk` y destruye su rama de tarea.
 
 ---
 
-## 2. WI-newdataset (#178 - Obligatorio Comun)
+## Matriz General de Coordinación y Carga
 
-### 2.1. Descripcion y Alcance
-Adaptacion del nucleo de la aplicacion para permitir la carga, validacion, extraccion de metricas y visualizacion de conjuntos de datos cinematograficos tabulares en formato CSV (Film-Hub).
+| ID Issue | Título del Work Item | Dificultad | Líder / Coordinador (A) | Tareas por Miembro | Revisores Cruzados |
+| :---: | :--- | :---: | :--- | :---: | :---: |
+| **#177** | **WI-fakenodo**: Servicio simulador Zenodo | **Mandatory** | Luis Lucena Prieto | 1 por integrante (4) | 1 por integrante (4) |
+| **#178** | **WI-newdataset**: Film-Hub (CSV de Cine) | **Mandatory** | Juan Felipe Pardo Carrillo | 1 por integrante (4) | 1 por integrante (4) |
+| **#188** | **Admin roles** (admin, curator, user) | **Medium** | José Vicente Sánchez Montilla | 1 por integrante (4) | 1 por integrante (4) |
+| **#213** | **Embeddable badge** (SVG / MD / HTML) | **Medium** | Adrián Muñoz Aradilla | 1 por integrante (4) | 1 por integrante (4) |
+| **#200** | **Two-factor authentication** (2FA / TOTP) | **High** | Juan Felipe Pardo Carrillo | 1 por integrante (4) | 1 por integrante (4) |
+| **#202** | **Active session management** | **High** | Luis Lucena Prieto | 1 por integrante (4) | 1 por integrante (4) |
 
-### 2.2. Descomposicion en Tareas Tecnicas
-- [ ] Tarea 2.1: Generacion del feature `filmdataset` mediante Rosemary CLI.
-- [ ] Tarea 2.2: Creacion de la entidad de datos `FilmDataset` y su correspondiente migracion de base de datos.
-- [ ] Tarea 2.3: Programacion del validador `FilmCSVValidator` (verificacion RFC 4180 y cabeceras obligatorias: `title`, `year`, `genre`).
-- [ ] Tarea 2.4: Programacion del servicio de calculo de metricas agregadas (`total_movies`, año minimo/maximo, genero mayoritario).
-- [ ] Tarea 2.5: Diseño de la vista de detalle con previsualizacion tabular paginada.
-- [ ] Tarea 2.6: Suite de pruebas unitarias sobre ficheros CSV conformes, vacios y con valores fuera de rango.
+---
 
-### 2.3. Criterios de Aceptacion
-- Dado un usuario autenticado en la plataforma.
-- Cuando sube un fichero CSV valido que contiene las cabeceras requeridas.
-- Entonces el sistema persiste el dataset, calcula sus metricas de dominio y muestra la tabla de previsualizacion.
-- Y si el archivo presenta datos corruptos o carece de cabeceras, retorna error descriptivo HTTP 400.
+## 1. WI-fakenodo (#177 - Mandatory)
+**Líder de WI**: Luis Lucena Prieto | **Objetivo**: Emular la API REST de Zenodo para desacoplar las pruebas y el entorno local de credenciales o disponibilidad externa.
+
+### Contrato de Endpoints
+- `POST /api/deposit/depositions`
+- `POST /api/deposit/depositions/{id}/files`
+- `POST /api/deposit/depositions/{id}/actions/publish` (genera DOI `10.5281/zenodo.filmhub.<id>`)
+- `GET /api/deposit/depositions/{id}` y `DELETE /api/deposit/depositions/{id}`
+
+### Reparto de Tareas y Revisores
+| ID | Tarea Técnica | Rama de Tarea | Responsable | Revisor Pre-Merge |
+| :---: | :--- | :--- | :--- | :--- |
+| **1.1** | Especificación de contratos JSON/HTTP de Zenodo y documentación de endpoints. | `feature/WI-177-api-contract` | José Vicente Sánchez | Luis Lucena |
+| **1.2** | Servicio mock Fakenodo, integración en `docker-compose.dev.yml` y variable `ZENODO_API_URL` en `.env`. | `feature/WI-177-fakenodo-service` | Luis Lucena | Juan Felipe Pardo |
+| **1.3** | Integración en UI de publicación mostrando el DOI simulado y estado del depósito. | `feature/WI-177-zenodo-ui-feedback` | Adrián Muñoz | José Vicente Sánchez |
+| **1.4** | Suite de pruebas automatizadas de contrato HTTP sobre endpoints simulados en Pytest. | `feature/WI-177-contract-tests` | Juan Felipe Pardo | Adrián Muñoz |
+
+### Criterios de Aceptación
+- Con Fakenodo activo en Docker, al publicar un dataset validado el sistema recibe HTTP 201 y un DOI simulado persistente sin conexión a internet.
+
+---
+
+## 2. WI-newdataset (#178 - Mandatory - Film-Hub)
+**Líder de WI**: Juan Felipe Pardo Carrillo | **Objetivo**: Adaptar el núcleo de la plataforma para gestionar, validar y visualizar datasets cinematográficos CSV desacoplados de Flamapy.
+
+### Reparto de Tareas y Revisores
+| ID | Tarea Técnica | Rama de Tarea | Responsable | Revisor Pre-Merge |
+| :---: | :--- | :--- | :--- | :--- |
+| **2.1** | Creación del feature `filmdataset` con Rosemary CLI, modelo `FilmDataset` y migración Alembic. | `feature/WI-178-filmdataset-model` | Luis Lucena | Juan Felipe Pardo |
+| **2.2** | Validador `FilmCSVValidator` (RFC 4180, cabeceras `title`, `year`, `genre`) y `FilmMetricsService`. | `feature/WI-178-csv-validator-metrics` | Juan Felipe Pardo | José Vicente Sánchez |
+| **2.3** | Vistas de subida de CSV, formulario de metadatos y tabla paginada de previsualizacion en UI. | `feature/WI-178-filmdataset-ui` | Adrián Muñoz | Luis Lucena |
+| **2.4** | Filtros de exploración por genero/año/rating, seeders de ejemplo y pruebas de integración con `test_movies.csv`. | `feature/WI-178-filters-seeders` | José Vicente Sánchez | Adrián Muñoz |
+
+### Criterios de Aceptación
+- Un CSV válido se persiste con sus métricas cinematográficas y tabla de previsualizacion; un CSV corrupto o sin cabeceras requeridas devuelve HTTP 400 descriptivo.
 
 ---
 
 ## 3. Issue #188 (Medium): Admin Roles (admin, curator, user)
+**Líder de WI**: José Vicente Sánchez Montilla | **Objetivo**: Implementar control de acceso basado en roles jerárquicos (RBAC).
 
-### 3.1. Descripcion y Alcance
-Incorporacion de un modelo de control de acceso basado en roles jerarquicos (RBAC) con tres niveles de privilegio: `user`, `curator` y `admin`.
+### Reparto de Tareas y Revisores
+| ID | Tarea Técnica | Rama de Tarea | Responsable | Revisor Pre-Merge |
+| :---: | :--- | :--- | :--- | :--- |
+| **3.1** | Enum `UserRole` en modelo `User`, migración Alembic y decorador `@role_required(*roles)` (HTTP 403). | `feature/WI-188-role-model-decorator` | José Vicente Sánchez | Juan Felipe Pardo |
+| **3.2** | Comando CLI `rosemary user:promote <email> <role>` y seeders de cuentas iniciales por rol. | `feature/WI-188-rosemary-promote` | Luis Lucena | José Vicente Sánchez |
+| **3.3** | Panel de administracion `/admin/users` para listado/cambio de roles y plantilla de error 403. | `feature/WI-188-admin-panel-ui` | Adrián Muñoz | Luis Lucena |
+| **3.4** | Pruebas unitarias y de integración RBAC verificando permisos diferenciados para `user`, `curator` y `admin`. | `feature/WI-188-rbac-tests` | Juan Felipe Pardo | Adrián Muñoz |
 
-### 3.2. Descomposicion en Tareas Tecnicas
-- [ ] Tarea 3.1: Extension del modelo de usuario con columna de rol y migracion Alembic asociada.
-- [ ] Tarea 3.2: Implementacion del decorador de ruta `@role_required(*roles)` que emite HTTP 403 ante accesos no autorizados.
-- [ ] Tarea 3.3: Comando de Rosemary CLI para asignacion de roles desde consola (`rosemary user:promote`).
-- [ ] Tarea 3.4: Modulo y vista de administracion `/admin/users` para gestion y asignacion de privilegios.
-- [ ] Tarea 3.5: Pruebas unitarias de autorizacion verificando denegacion de acceso a usuarios sin privilegios.
-
-### 3.3. Criterios de Aceptacion
-- Dado un usuario con rol `user`.
-- Cuando intenta acceder a un endpoint restringido al rol `admin`.
-- Entonces la solicitud es denegada con codigo de estado HTTP 403.
-- Y la peticion solo prospera cuando el usuario posee el rol `admin`.
+### Criterios de Aceptación
+- Un usuario con rol `user` recibe HTTP 403 al intentar acceder a `/admin/users`; solo un `admin` puede gestionar roles.
 
 ---
 
 ## 4. Issue #213 (Medium): Embeddable Badge (SVG / Markdown / HTML)
+**Líder de WI**: Adrián Muñoz Aradilla | **Objetivo**: Generar insignias SVG dinámicas con estadísticas de datasets y snippets listos para incrustar.
 
-### 4.1. Descripcion y Alcance
-Generacion dinamica de insignias graficas vectoriales en formato SVG con metricas actualizadas de un dataset publicado, facilitando fragmentos embebibles en Markdown y HTML.
+### Reparto de Tareas y Revisores
+| ID | Tarea Técnica | Rama de Tarea | Responsable | Revisor Pre-Merge |
+| :---: | :--- | :--- | :--- | :--- |
+| **4.1** | Plantilla SVG vectorial accesible y modal en vista de dataset para copiar snippets Markdown/HTML. | `feature/WI-213-badge-svg-ui` | Adrián Muñoz | José Vicente Sánchez |
+| **4.2** | Endpoint `GET /dataset/<id>/badge.svg` con soporte de parametros (`movies`, `rating`, `downloads`). | `feature/WI-213-badge-endpoint` | José Vicente Sánchez | Adrián Muñoz |
+| **4.3** | Configuración de cabeceras `Content-Type: image/svg+xml`, `Cache-Control` y compatibilidad Nginx. | `feature/WI-213-cache-headers` | Luis Lucena | Juan Felipe Pardo |
+| **4.4** | Pruebas unitarias de generación de XML/SVG válido y respuesta controlada ante ID inexistente (HTTP 404). | `feature/WI-213-badge-tests` | Juan Felipe Pardo | Luis Lucena |
 
-### 4.2. Descomposicion en Tareas Tecnicas
-- [ ] Tarea 4.1: Diseño de la plantilla SVG vectorial optimizada y accesible.
-- [ ] Tarea 4.2: Implementacion del endpoint `GET /dataset/<id>/badge.svg` con cabeceras `image/svg+xml` y politicas de cache.
-- [ ] Tarea 4.3: Soporte de parametros para metricas seleccionables (`movies`, `rating`, `downloads`).
-- [ ] Tarea 4.4: Componente visual en la vista de dataset para copiar fragmentos de codigo listos para uso externo.
-- [ ] Tarea 4.5: Pruebas unitarias sobre la generacion del XML/SVG y tratamiento de datasets no encontrados (HTTP 404).
-
-### 4.3. Criterios de Aceptacion
-- Dado un dataset de cine publicado con identificador valido.
-- Cuando se realiza una llamada HTTP al endpoint de insignia.
-- Entonces el servidor devuelve un documento SVG valido que refleja la metrica consultada.
+### Criterios de Aceptación
+- Una peticion GET a `/dataset/<id>/badge.svg?metric=movies` retorna HTTP 200 con tipo `image/svg+xml` y la métrica actualizada.
 
 ---
 
 ## 5. Issue #200 (High): Two-Factor Authentication (2FA / TOTP)
+**Líder de WI**: Juan Felipe Pardo Carrillo | **Objetivo**: Incorporar segundo factor de autenticación TOTP (RFC 6238) con QR y códigos de rescate.
 
-### 5.1. Descripcion y Alcance
-Mecanismo de seguridad de doble factor basado en contraseñas de un solo uso por tiempo (TOTP - RFC 6238), con soporte de generacion de secreto, visualizacion de codigo QR y codigos de recuperacion de uso unico.
+### Reparto de Tareas y Revisores
+| ID | Tarea Técnica | Rama de Tarea | Responsable | Revisor Pre-Merge |
+| :---: | :--- | :--- | :--- | :--- |
+| **5.1** | Extensión de `User` (`totp_secret`, `is_2fa_enabled`), tabla `BackupCode` hasheada y servicio TOTP (`pyotp`). | `feature/WI-200-totp-core` | Juan Felipe Pardo | Luis Lucena |
+| **5.2** | Vistas de configuración 2FA con renderizado de QR (`qrcode`), verificación de 6 digitos y listado de rescate. | `feature/WI-200-2fa-ui-qr` | Adrián Muñoz | Juan Felipe Pardo |
+| **5.3** | Flujo de sesión parcial en login (`/auth/2fa/verify`), consumo de códigos de rescate y desactivación con contraseña. | `feature/WI-200-login-2fa-flow` | José Vicente Sánchez | Adrián Muñoz |
+| **5.4** | Gestión de dependencias en `requirements.txt`/Docker y pruebas de integración (deriva temporal y errores). | `feature/WI-200-docker-deps-tests` | Luis Lucena | José Vicente Sánchez |
 
-### 5.2. Descomposicion en Tareas Tecnicas
-- [ ] Tarea 5.1: Modificacion del modelo de usuario para albergar secreto TOTP, estado de activacion y codigos de rescate hasheados.
-- [ ] Tarea 5.2: Flujo de activacion con renderizado de QR y verificacion del primer token temporal.
-- [ ] Tarea 5.3: Mecanismo de emision e invalidacion de codigos de rescate de un solo uso.
-- [ ] Tarea 5.4: Intercepcion del proceso de inicio de sesion para solicitar token de 6 digitos si 2FA se encuentra habilitado.
-- [ ] Tarea 5.5: Procedimiento de desactivacion segura con confirmacion de contraseña actual.
-- [ ] Tarea 5.6: Pruebas unitarias de verificacion de tokens temporales, desfase de reloj admisible y codigos invalidos.
-
-### 5.3. Criterios de Aceptacion
-- Dado un usuario con autenticacion 2FA activada en su cuenta.
-- Cuando completa satisfactoriamente su combinacion de usuario y contraseña.
-- Entonces el sistema no inicia la sesion completa hasta que el usuario proporciona un codigo TOTP valido.
-- Y si el codigo TOTP o de recuperacion es correcto, se completa el acceso al sistema.
+### Criterios de Aceptación
+- Un usuario con 2FA activo no completa la sesión tras introducir contraseña hasta validar un código TOTP o de rescate de un solo uso.
 
 ---
 
 ## 6. Issue #202 (High): Active Session Management
+**Líder de WI**: Luis Lucena Prieto | **Objetivo**: Auditar y controlar sesiones activas concurrentes en servidor con cierre selectivo y masivo.
 
-### 6.1. Descripcion y Alcance
-Mecanismo de control, persistencia y auditoria de sesiones concurrentes de usuario a nivel de servidor, posibilitando el cierre selectivo y masivo de sesiones activas.
+### Reparto de Tareas y Revisores
+| ID | Tarea Técnica | Rama de Tarea | Responsable | Revisor Pre-Merge |
+| :---: | :--- | :--- | :--- | :--- |
+| **6.1** | Modelo `UserSession` (token hash, IP, User-Agent, actividad), migración y middleware con throttling. | `feature/WI-202-session-model-middleware` | Luis Lucena | Juan Felipe Pardo |
+| **6.2** | Panel `/profile/sessions` listando dispositivos conectados, sesión actual y botones de revocación. | `feature/WI-202-sessions-ui` | Adrián Muñoz | Luis Lucena |
+| **6.3** | Endpoints de revocación individual, cierre masivo ("revocar resto") y comando Rosemary de purga. | `feature/WI-202-revoke-endpoints` | José Vicente Sánchez | Adrián Muñoz |
+| **6.4** | Pruebas automatizadas de concurrencia multi-navegador e invalidacion inmediata tras revocación. | `feature/WI-202-session-tests` | Juan Felipe Pardo | José Vicente Sánchez |
 
-### 6.2. Descomposicion en Tareas Tecnicas
-- [ ] Tarea 6.1: Creacion de la entidad `UserSession` para registrar identificador de sesion, IP, User-Agent, fechas de creacion y ultima actividad.
-- [ ] Tarea 6.2: Middleware de actualizacion de ultima actividad con control de frecuencia de escritura.
-- [ ] Tarea 6.3: Integracion con el ciclo de login y logout para alta y baja de la sesion en base de datos.
-- [ ] Tarea 6.4: Panel de usuario con listado de sesiones abiertas distinguiendo la sesion en curso.
-- [ ] Tarea 6.5: Endpoints de revocacion unitaria y de cierre masivo de sesiones restantes.
-- [ ] Tarea 6.6: Pruebas automatizadas comprobando que una sesion revocada no permite realizar solicitudes autenticadas posteriores.
+### Criterios de Aceptación
+- Al revocar una sesión desde el panel de usuario, la siguiente peticion HTTP realizada desde esa sesión es rechazada y redirigida al login.
 
-### 6.3. Criterios de Aceptacion
-- Dado un usuario autenticado simultaneamente en dos navegadores diferentes.
-- Cuando el usuario revoca una de las sesiones desde el panel de control.
-- Entonces el token de dicha sesion queda invalidado en la base de datos.
-- Y cualquier peticion posterior desde el navegador revocado es redirigida al formulario de login.
+---
+
+## Resumen de Carga Equitativa por Integrante
+
+| Integrante | Tareas Asignadas (6) | Revisiones Asignadas (6) | WIs Coordinados |
+| :--- | :--- | :--- | :--- |
+| **José Vicente Sánchez (PM)** | 1.1, 2.4, 3.1, 4.2, 5.3, 6.3 | 1.3, 2.2, 3.2, 4.1, 5.4, 6.4 | #188 (Medium) |
+| **Luis Lucena (DevOps)** | 1.2, 2.1, 3.2, 4.3, 5.4, 6.1 | 1.1, 2.3, 3.3, 4.4, 5.1, 6.2 | #177 (Mandatory), #202 (High) |
+| **Juan Felipe Pardo (QA)** | 1.4, 2.2, 3.4, 4.4, 5.1, 6.4 | 1.2, 2.1, 3.1, 4.3, 5.2, 6.1 | #178 (Mandatory), #200 (High) |
+| **Adrián Muñoz (Frontend)** | 1.3, 2.3, 3.3, 4.1, 5.2, 6.2 | 1.4, 2.4, 3.4, 4.2, 5.3, 6.3 | #213 (Medium) |
