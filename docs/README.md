@@ -19,7 +19,8 @@ La carpeta `docs/` organiza los procedimientos, especificaciones y registros que
 
 ### 2. Diario de Equipo y Actas (`docs/diario_equipo/`)
 - **[Acta Fundacional del Equipo](diario_equipo/acta_fundacional.md)**: Documento de constitución del equipo con asignación de perfiles y Work Items.
-- **[Acta de Reunión - 09/11/2026](diario_equipo/acta_reunion_2026_11_09.md)**: Acta oficial de la sesión presencial de clase (12:40 a 14:30).
+- **[Acta de Reunión - 09/11/2026](diario_equipo/acta_reunion_2026_11_09.md)**: Acta de la sesión inicial de planificación, CI/CD y reparto documental.
+- **[Acta de Reunión - 17/11/2026](diario_equipo/acta_reunion_2026_11_17.md)**: Acta de la sesión de reparto de Work Items y definición de metodología.
 
 ### 3. Plantillas Operativas (`docs/plantillas/`)
 - **[Plantilla de Decisión Arquitectónica (ADR)](plantillas/plantilla_decision_tecnica_ADR.md)**: Modelo para justificar y documentar decisiones técnicas y de diseño relevantes.
