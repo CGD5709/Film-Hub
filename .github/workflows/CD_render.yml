@@ -1,0 +1,33 @@
+name: CD Deploy to Render
+
+on:
+  workflow_run:
+    workflows:
+      - "CI Full"
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-render:
+    name: Deploy Film-Hub to Render
+    runs-on: ubuntu-24.04
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      || github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "ERROR: Falta configurar el secreto RENDER_DEPLOY_HOOK_URL en el entorno production."
+            exit 1
+          fi
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Despliegue en Render lanzado correctamente."
