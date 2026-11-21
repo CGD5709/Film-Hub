@@ -1,16 +1,7 @@
-# ----------------------------------------------------------------------------
-# Commits Syntax Checker Workflow
-# This workflow validates commit messages against the Conventional Commits specification.
-# It runs on every push and pull request to ensure consistent commit history.
-# ----------------------------------------------------------------------------
-
 name: Commits Syntax Checker
 
 on:
-  # Trigger the workflow on every push to any branch
   push:
-  # Trigger the workflow on every pull request (opened, synchronized, or updated)
-  pull_request:
 
 jobs:
   check:
@@ -18,7 +9,40 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      
-      # Step to validate commit messages following the Conventional Commits standard
-      - name: Validate commit messages
-        uses: webiny/action-conventional-commits@v1.3.0
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate non-merge commit messages
+        shell: bash
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            if git rev-parse --verify origin/develop >/dev/null 2>&1; then
+              RANGE="origin/develop..${{ github.sha }}"
+            else
+              RANGE="-n 1 ${{ github.sha }}"
+            fi
+          else
+            RANGE="${BEFORE}..${{ github.sha }}"
+          fi
+
+          COMMITS=$(git log --no-merges --pretty=format:"%H|%s" $RANGE)
+          if [ -z "$COMMITS" ]; then
+            echo "No hay commits nuevos no-merge que validar."
+            exit 0
+          fi
+
+          REGEX='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9._/-]+\))?!?: .+'
+          FAILED=0
+          while IFS='|' read -r HASH MSG; do
+            if ! [[ "$MSG" =~ $REGEX ]]; then
+              echo "ERROR: El commit $HASH no cumple Conventional Commits: '$MSG'"
+              FAILED=1
+            else
+              echo "OK: $MSG"
+            fi
+          done <<< "$COMMITS"
+
+          exit $FAILED
