@@ -6,11 +6,7 @@ from collections import Counter
 
 from splent_framework.services.BaseService import BaseService
 
-from app.features.dataset.repositories import (
-    AuthorRepository,
-    DSDownloadRecordRepository,
-    DSMetaDataRepository,
-)
+from app.features.dataset.repositories import AuthorRepository, DSDownloadRecordRepository, DSMetaDataRepository
 from app.features.dataset.services import calculate_checksum_and_size
 from app.features.filmdataset.models import FilmDataset
 from app.features.filmdataset.repositories import FilmdatasetRepository
