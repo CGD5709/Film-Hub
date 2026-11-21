@@ -14,6 +14,7 @@ from flask import (
 from flask_login import current_user, login_required
 
 from app.features.dataset import dataset_bp
+from app.features.dataset.badge import build_badge_snippets, render_dataset_badge_svg, render_not_found_badge_svg
 from app.features.dataset.forms import DataSetForm
 from app.features.dataset.services import (
     DataSetService,
@@ -94,6 +95,28 @@ def download_dataset(dataset_id):
     return resp
 
 
+@dataset_bp.route("/doi/<path:doi>/badge.svg", methods=["GET"])
+def dataset_badge(doi):
+    new_doi = doi_mapping_service.get_new_doi(doi)
+    if new_doi:
+        return redirect(url_for("dataset.dataset_badge", doi=new_doi), code=302)
+
+    ds_meta_data = dsmetadata_service.filter_by_doi(doi)
+    if not ds_meta_data or not ds_meta_data.data_set:
+        resp = make_response(render_not_found_badge_svg(), 404)
+        resp.headers["Content-Type"] = "image/svg+xml; charset=utf-8"
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+    dataset = ds_meta_data.data_set
+    downloads = DSDownloadRecordService().count_by_dataset_id(dataset.id)
+    svg = render_dataset_badge_svg(title=ds_meta_data.title, doi=ds_meta_data.dataset_doi, downloads=downloads)
+    resp = make_response(svg, 200)
+    resp.headers["Content-Type"] = "image/svg+xml; charset=utf-8"
+    resp.headers["Cache-Control"] = "public, max-age=300"
+    return resp
+
+
 @dataset_bp.route("/doi/<path:doi>/", methods=["GET"])
 def subdomain_index(doi):
 
@@ -111,10 +134,25 @@ def subdomain_index(doi):
 
     # Get dataset
     dataset = ds_meta_data.data_set
+    dataset_url = dataset_service.get_uvlhub_doi(dataset)
+    badge_url = dataset_service.get_badge_url(dataset)
+    badge_snippets = build_badge_snippets(
+        title=ds_meta_data.title,
+        dataset_url=dataset_url,
+        badge_url=badge_url,
+    )
 
     # Save the cookie to the user's browser
     user_cookie = ds_view_record_service.create_cookie(dataset=dataset)
-    resp = make_response(render_template("dataset/view_dataset.html", dataset=dataset))
+    resp = make_response(
+        render_template(
+            "dataset/view_dataset.html",
+            dataset=dataset,
+            badge_url=badge_url,
+            badge_markdown=badge_snippets["markdown"],
+            badge_html=badge_snippets["html"],
+        )
+    )
     resp.set_cookie("view_cookie", user_cookie, max_age=60 * 60 * 24 * 365 * 2)
 
     return resp
