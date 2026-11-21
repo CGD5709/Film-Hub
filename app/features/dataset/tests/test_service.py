@@ -263,4 +263,3 @@ def test_download_record_service_count_by_dataset_id(test_app, clean_database):
 
         assert service.count_by_dataset_id(first.id) == 2
         assert service.count_by_dataset_id(second.id) == 1
-

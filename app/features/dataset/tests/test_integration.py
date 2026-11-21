@@ -320,4 +320,3 @@ def test_doi_landing_page_includes_embed_badge_modal_and_https_snippets_in_produ
     assert f"{base_url}/badge.svg" in body
     assert f"[![Movie Trends]({base_url}/badge.svg)]({base_url})" in decoded
     assert f'<a href="{base_url}"><img src="{base_url}/badge.svg" alt="Movie Trends" /></a>' in decoded
-
