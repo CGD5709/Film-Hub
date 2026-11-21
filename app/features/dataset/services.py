@@ -252,9 +252,21 @@ class DataSetService(BaseService):
 
         return tmp_dir, zip_name
 
+    def get_base_url(self) -> str:
+        domain = os.getenv("DOMAIN", "localhost").strip().rstrip("/")
+        if domain.startswith(("http://", "https://")):
+            return domain
+
+        scheme = os.getenv("URL_SCHEME", "").strip().lower()
+        if not scheme:
+            scheme = "https" if os.getenv("FLASK_ENV", "").strip().lower() == "production" else "http"
+        return f"{scheme}://{domain}"
+
     def get_uvlhub_doi(self, dataset: DataSet) -> str:
-        domain = os.getenv("DOMAIN", "localhost")
-        return f"http://{domain}/doi/{dataset.ds_meta_data.dataset_doi}"
+        return f"{self.get_base_url()}/doi/{dataset.ds_meta_data.dataset_doi}"
+
+    def get_badge_url(self, dataset: DataSet) -> str:
+        return f"{self.get_base_url()}/doi/{dataset.ds_meta_data.dataset_doi}/badge.svg"
 
 
 class AuthorService(BaseService):
@@ -265,6 +277,9 @@ class AuthorService(BaseService):
 class DSDownloadRecordService(BaseService):
     def __init__(self):
         super().__init__(DSDownloadRecordRepository())
+
+    def count_by_dataset_id(self, dataset_id: int) -> int:
+        return self.repository.count_by_dataset_id(dataset_id)
 
     def record_download(self, user, dataset_id: int, cookie: str) -> None:
         """Record a download once per (user/anonymous, dataset, cookie) tuple."""
