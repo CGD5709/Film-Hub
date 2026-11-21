@@ -12,7 +12,8 @@ La carpeta `docs/` organiza los procedimientos, especificaciones y registros que
 
 ### 1. Guías Técnicas y Procedimientos Operativos
 - **[Política de Ramas y Flujo de Trabajo (EGCFlow)](politica_ramas_y_flujo_trabajo.md)**: Modelo de ramas (`main` y `trunk`), integración con Git CLI en terminal (prohibición de PRs internas), estándar Conventional Commits y uso exclusivo de PRs para colaboraciones inter-grupos.
-- **[Entornos de Despliegue y Estrategia CI/CD](entornos_despliegue_cicd.md)**: Especificación de entornos (Desarrollo, Preproducción/Staging y Producción), flujos en GitHub Actions, registro de imágenes inmutables en Docker Hub y planes de Rollback/Rollforward.
+- **[Entornos de Despliegue](entornos_despliegue_cicd.md)**: Especificación realista de los cuatro entornos del proyecto (Desarrollo local con Docker/DevContainer, Pruebas/CI en GitHub Actions, Preproducción/Staging y Producción en Render.com), gestión de configuración y planes de Rollback/Rollforward.
+- **[Metodología de CI/CD y Estrategia de Pruebas](Metodologia_CI-CD.md)**: Flujos en GitHub Actions (CI rápida, CI completa con Selenium y CD en Render), auditoría de tests del fork y política de pruebas.
 - **[Descomposición de Work Items](descomposicion_work_items.md)**: Estructura de descomposición de los 6 Work Items asignados al equipo de 4 integrantes (#177, #178, #188, #213, #200, #202), criterios de aceptación y asignación de pares.
 - **[Gestión de Bugs e Incidencias](gestion_bugs_e_incidencias.md)**: Procedimiento ágil y simplificado para el reporte y resolución de bugs mediante revisión de pares, comunicación directa y registro tabular centralizado.
 - **[Registro y Toma de Decisiones](toma_de_decisiones.md)**: Marco de gobernanza del equipo con requisito de acuerdo unánime (4 de 4) y tabla viva de registro de decisiones tomadas durante el proyecto.
