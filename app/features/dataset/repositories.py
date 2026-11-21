@@ -23,6 +23,9 @@ class DSDownloadRecordRepository(BaseRepository):
     def total_dataset_downloads(self) -> int:
         return self.model.query.count()
 
+    def count_by_dataset_id(self, dataset_id: int) -> int:
+        return self.model.query.filter_by(dataset_id=dataset_id).count()
+
     def find_by_user_dataset_cookie(self, user_id, dataset_id: int, cookie: str):
         return self.model.query.filter_by(user_id=user_id, dataset_id=dataset_id, download_cookie=cookie).first()
 
