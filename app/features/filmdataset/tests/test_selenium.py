@@ -17,6 +17,7 @@ These tests run against the live application and the seeded development
 database, not the test database. There is no fixture and no reset between
 tests, so keep them read-only or clean up after yourself.
 """
+
 import pytest
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC

@@ -170,6 +170,7 @@ class FilmdatasetService(BaseService):
 
         try:
             dsmetadata = self.dsmetadata_repository.create(commit=False, **form.get_dsmetadata())
+            self.repository.session.flush()
             for author_data in [main_author] + form.get_authors():
                 author = self.author_repository.create(commit=False, ds_meta_data_id=dsmetadata.id, **author_data)
                 dsmetadata.authors.append(author)
@@ -242,8 +243,7 @@ class FilmdatasetService(BaseService):
             reader = csv.DictReader(stream)
             headers = [h.strip().lower() for h in (reader.fieldnames or [])]
             all_rows = [
-                {k.strip().lower(): (v.strip() if v is not None else "") for k, v in row.items()}
-                for row in reader
+                {k.strip().lower(): (v.strip() if v is not None else "") for k, v in row.items()} for row in reader
             ]
 
         total = len(all_rows)

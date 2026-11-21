@@ -1,5 +1,4 @@
 from locust import HttpUser, TaskSet, between, task
-
 from splent_framework.environment.host import get_host_for_locust_testing
 
 
