@@ -40,36 +40,34 @@ def _render_segmented_badge_svg(segments: list[tuple[str, str]], aria_label: str
         safe_label = escape(label, quote=True)
         center_x = offset + width / 2
         rects.append(f'<rect x="{offset}" width="{width}" height="20" fill="{color}"/>')
-        texts.append(
-            f'<text x="{center_x:.1f}" y="15" fill="#010101" fill-opacity=".3">{safe_label}</text>'
-            f'<text x="{center_x:.1f}" y="14">{safe_label}</text>'
-        )
+        texts.append(f'<text x="{center_x:.1f}" y="15" fill="#010101" fill-opacity=".3">{safe_label}</text>')
+        texts.append(f'<text x="{center_x:.1f}" y="14">{safe_label}</text>')
         offset += width
 
     rects_markup = "".join(rects)
     texts_markup = "".join(texts)
-
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="20" '
-        f'role="img" aria-label="{safe_aria}">'
-        f"<title>{safe_aria}</title>"
-        '<linearGradient id="s" x2="0" y2="100%">'
-        '<stop offset="0" stop-color="#bbb" stop-opacity=".1"/>'
-        '<stop offset="1" stop-opacity=".1"/>'
-        "</linearGradient>"
-        '<clipPath id="r">'
-        f'<rect width="{total_width}" height="20" rx="3" fill="#fff"/>'
-        "</clipPath>"
-        '<g clip-path="url(#r)">'
-        f"{rects_markup}"
-        f'<rect width="{total_width}" height="20" fill="url(#s)"/>'
-        "</g>"
-        '<g fill="#fff" text-anchor="middle" '
-        'font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">'
-        f"{texts_markup}"
-        "</g>"
-        "</svg>"
-    )
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="20" ',
+        f'role="img" aria-label="{safe_aria}">',
+        f"<title>{safe_aria}</title>",
+        '<linearGradient id="s" x2="0" y2="100%">',
+        '<stop offset="0" stop-color="#bbb" stop-opacity=".1"/>',
+        '<stop offset="1" stop-opacity=".1"/>',
+        "</linearGradient>",
+        '<clipPath id="r">',
+        f'<rect width="{total_width}" height="20" rx="3" fill="#fff"/>',
+        "</clipPath>",
+        '<g clip-path="url(#r)">',
+        rects_markup,
+        f'<rect width="{total_width}" height="20" fill="url(#s)"/>',
+        "</g>",
+        '<g fill="#fff" text-anchor="middle" ',
+        'font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">',
+        texts_markup,
+        "</g>",
+        "</svg>",
+    ]
+    return "".join(parts)
 
 
 def render_dataset_badge_svg(title: str, doi: str, downloads: int) -> str:
