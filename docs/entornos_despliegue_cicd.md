@@ -1,137 +1,148 @@
-# Entornos de Despliegue, Estrategia CI/CD y Trazabilidad
+# Entornos de Despliegue - Film-Hub
 
-Este documento define la arquitectura de despliegue y los flujos automatizados de **Integracion Continua (CI)**, **Entrega Continua (CD)** y **Despliegue Continuo** del proyecto **Film-Hub**, de acuerdo con los fundamentos teoricos y practicos de la asignatura **Evolucion y Gestion de la Configuracion (EGC)**.
+Este documento define los entornos en los que desarrollamos, probamos y desplegamos **Film-Hub**, así como nuestros criterios de aislamiento, configuración y recuperación ante fallos. Hemos diseñado esta arquitectura buscando un enfoque **realista y asumible para un equipo de cuatro estudiantes**, aprovechando la infraestructura ya presente en el repositorio y servicios gratuitos en la nube.
+
+> Este documento se complementa con la [Metodología de CI/CD y Estrategia de Pruebas](Metodologia_CI-CD.md) y la [Política de Ramas y Flujo de Trabajo (EGCFlow)](politica_ramas_y_flujo_trabajo.md).
 
 ---
 
 ## 1. Cadena de Entornos de Despliegue
 
-Conforme a la definicion de la disciplina, *"desplegar no equivale a entregar, y la transicion entre entornos progresivos incrementa la certidumbre sobre el comportamiento del sistema antes de exponerlo a usuarios reales"*. Film-Hub articula una cadena de tres entornos aislados:
+Para reducir errores antes de exponer cambios a usuarios reales (o al profesorado durante las evaluaciones), separamos claramente el momento de tener una versión lista para entregar (*release*) del acto de instalarla y ejecutarla en un entorno concreto (*deploy*). Con ese objetivo, organizamos el recorrido del código en **cuatro entornos** que aumentan progresivamente nuestra confianza sobre cada cambio:
 
 ```text
-+-------------------+      +-------------------------+      +---------------------+
-|    DESARROLLO     |      | PREPRODUCCION (STAGING) |      |     PRODUCCION      |
-|  (Entorno Local)  | ---> |  (Validacion Continua)  | ---> | (Servicio en Vivo)  |
-| Docker Compose Dev|      |   Docker Compose Prod   |      | Artefacto Inmutable |
-| Hot-reload / Mocks|      | Tests E2E / Fakenodo    |      | Alta Disponibilidad |
-+-------------------+      +-------------------------+      +---------------------+
++-------------------+     +---------------------+     +----------------------+     +--------------------+
+|  1. DESARROLLO    |     |  2. PRUEBAS / CI    |     |  3. PREPRODUCCIÓN    |     |   4. PRODUCCIÓN    |
+|     (Local)       | --> |  (GitHub Actions)   | --> |     (Staging)        | --> |   (Render.com)     |
+| Docker Compose    |     | Runner ubuntu-24.04 |     | Imagen render + BD   |     | Imagen render + BD |
+| Flask debug/seed  |     | efímero y hermético |     | de pruebas separada  |     | externa (filess.io)|
++-------------------+     +---------------------+     +----------------------+     +--------------------+
+   ramas de tarea            cada push / rama            rama de integración            rama main
 ```
 
-### 1.1. Especificacion Comparativa de Entornos
+### 1.1. Resumen Comparativo de Entornos
 
-| Parametro | Entorno de Desarrollo (Local) | Entorno de Preproduccion (Staging) | Entorno de Produccion |
-| :--- | :--- | :--- | :--- |
-| **Infraestructura** | Docker Compose local / DevContainer | Contenedor aislado en servidor staging o PaaS | Contenedor en servidor de produccion (PaaS / VPS) |
-| **Rama Asociada** | Ramas de tarea (`feature/*`, `bugfix/*`) | Rama `trunk` tras integracion local | Rama `main` asociada a etiqueta SemVer |
-| **Configuracion** | `.env.local` / `docker-compose.dev.yml` | `.env.staging` / `docker-compose.prod.yml` | `.env.production` / `docker-compose.prod.ssl.yml` |
-| **Base de Datos** | MariaDB local `uvlhubdb_dev` con datos ficticios | MariaDB staging `uvlhubdb_staging` | MariaDB produccion `uvlhubdb` con copias de seguridad |
-| **Servicio Zenodo** | Fakenodo en ejecucion local | Fakenodo para validacion de pruebas E2E | Fakenodo o Zenodo Sandbox oficial |
-| **Objetivo** | Programacion diaria y depuracion rapida | Validacion de integracion y pruebas de aceptacion | Servicio final operativo y monitorizado |
-| **Disparador** | Manual por el desarrollador | Despliegue automatizado tras merge a `trunk` | Despliegue automatizado tras publicacion de Release |
-
----
-
-## 2. Flujos de Trabajo en GitHub Actions
-
-Los flujos de automatizacion se localizan en `.github/workflows/` y se ejecutan sobre entornos limpios `ubuntu-24.04`.
-
-```text
-[ Evento: Push o Pull Request ]
-               |
-               +---> 1. CI: Commits Syntax Checker (Conventional Commits)
-               +---> 2. CI: Python Lint (flake8, black, isort)
-               +---> 3. CI: Pytest (MariaDB Service + Rosemary)
-                           |
-                           v (Al mergear en trunk con CI en verde)
-                     4. CD: Despliegue en Preproduccion (Staging)
-                           |
-                           v (Al publicar Release vX.Y.Z en main)
-                     5. CD: Construccion y Publicacion de Imagen Docker Hub
-                           |
-                           v
-                     6. CD: Notificacion a Webhook de Despliegue en Produccion
-```
-
-### 2.1. Pipelines de Integracion Continua (CI)
-
-1. **`CI_commits.yml` (Comprobacion de Sintaxis de Commits)**:
-   - Se ejecuta ante cualquier `push` o `pull_request`.
-   - Garantiza que los mensajes de commit se ajusten a Conventional Commits (`tipo(ambito): descripcion (#issue)`).
-
-2. **`CI_lint.yml` (Calidad y Formato Estatico)**:
-   - Se ejecuta ante cualquier `push` o `pull_request`.
-   - Herramientas aplicadas:
-     - `flake8`: Cumplimiento del estandar de estilo PEP8.
-     - `black --check`: Verificacion de formateo inmutable de codigo.
-     - `isort --check-only`: Ordenacion determinista de importaciones.
-
-3. **`CI_pytest.yml` (Suite de Pruebas Automatizadas)**:
-   - Se ejecuta ante `push` y `pull_request` con destino en `trunk` y `main`.
-   - Inicializa un contenedor de servicio con MariaDB 12 y healthcheck activo.
-   - Instala el conjunto de dependencias y la CLI local Rosemary.
-   - Ejecuta las pruebas unitarias y de integracion de todos los modulos en `app/features/`.
-
-### 2.2. Pipelines de Entrega Continua (CD - Delivery)
-
-1. **`CD_dockerhub.yml` (Generacion de Artefacto Inmutable)**:
-   - Disparador: Publicacion formal de un Release en GitHub (`release: [published]`).
-   - Construye la imagen de produccion con `docker/images/Dockerfile.prod` inyectando el argumento `VERSION_TAG=$TAG`.
-   - Publica la imagen en Docker Hub bajo dos identificadores:
-     - Version inmutable: `<usuario>/filmhub:<version_tag>`
-     - Puntero funcional: `<usuario>/filmhub:latest`
-
-### 2.3. Pipelines de Despliegue Continuo (CD - Deployment)
-
-1. **`CD_webhook.yml` (Despliegue Desatendido)**:
-   - Disparador: Finalizacion exitosa del workflow de pruebas en `main`.
-   - Emite una llamada HTTP POST segura al endpoint de despliegue configurado:
-     ```bash
-     curl -X POST https://${WEBHOOK_DOMAIN}/webhook/deploy \
-          -H "Authorization: Bearer ${WEBHOOK_TOKEN}"
-     ```
-   - El receptor ejecuta de forma automatica:
-     ```bash
-     docker compose pull web
-     docker compose up -d web
-     docker compose exec -T web rosemary db:migrate
-     ```
+| Característica | Desarrollo (Local) | Pruebas / Integración (CI) | Preproducción (*Staging*) | Producción |
+| :--- | :--- | :--- | :--- | :--- |
+| **Propósito** | Programar, depurar rápido y pasar tests locales | Validar cada cambio en un entorno limpio y aislado | Probar la aplicación integrada antes de hitos/entregas | Servicio accesible en vivo para demostración y uso real |
+| **Infraestructura** | Docker Compose en el portátil de cada integrante (o Dev Container) | Runners efímeros `ubuntu-24.04` en GitHub Actions | Servicio web gratuito en Render.com (o comprobación local de `Dockerfile.render`) | Servicio web PaaS en **Render.com** (plan gratuito) |
+| **Rama asociada** | Ramas de tarea (`feature/*`, `bugfix/*`, `chore/*`, `docs/*`) | Todas las ramas (Nivel 1) y rama de integración / `main` (Nivel 2) | Rama de integración (`trunk`) | Rama `main` (estados estables y etiquetados) |
+| **`FLASK_ENV`** | `development` | `testing` | `production` | `production` |
+| **Servidor web** | Flask dev server (`--reload --debug`, puerto `5000`) tras Nginx (`80`) | Cliente de pruebas Flask / servidor temporal en Selenium | Gunicorn (`0.0.0.0:80`) vía `render_entrypoint.sh` | Gunicorn (`0.0.0.0:80`) vía `render_entrypoint.sh` |
+| **Base de datos** | MariaDB 12.0.2 en contenedor (`uvlhubdb` + `uvlhubdb_test`) | Contenedor de servicio `mariadb:12.0.2` (`uvlhubdb_test`) efímero | MariaDB externa independiente de producción (plan gratuito en `filess.io`) | MariaDB externa en `filess.io` con datos estables |
+| **Servicio Zenodo** | `fakenodo` en local | `fakenodo` / dobles de prueba | `fakenodo` | `fakenodo` (o Zenodo Sandbox si se requiere validar integración real) |
+| **Activación** | Manual por cada desarrollador | Automática con cada `git push` | Automática / bajo demanda tras integrar cambios en `trunk` | **Entrega Continua**: aprobación manual en GitHub (`CD_render.yml`) |
 
 ---
 
-## 3. Gestion de Migraciones y Variables de Entorno
+## 2. Descripción Detallada de Cada Entorno
 
-- **Principio de Idempotencia**: Toda modificacion sobre el esquema relacional de MariaDB debe ser gestionada mediante Alembic y ejecutada a traves de `rosemary db:migrate`.
-- **Aislamiento de Secretos**: Ninguna variable de entorno sensible o credencial de base de datos se versiona en el repositorio. Se configuran mediante paneles de secretos o archivos `.env` excluidos explicitamente en `.gitignore`.
+### 2.1. Entorno de Desarrollo (Local)
 
----
+Es el espacio de trabajo diario de los cuatro miembros del equipo. Para evitar el clásico problema de *"en mi máquina funciona"*, hemos decidido no configurar el entorno a mano ni depender de instrucciones de memoria, sino reproducirlo a partir de ficheros declarativos versionados en el repositorio.
 
-## 4. Estrategia de Rollback y Rollforward
-
-Conforme a las directrices de gestion de riesgos de la asignatura:
-
-### 4.1. Procedimiento de Rollback Inmediato
-Si una release en produccion presenta un fallo critico bloqueante:
-1. Localizar la etiqueta de la version inmediatamente anterior estable en el registro de Docker Hub (ejemplo: `v1.0.1`).
-2. Actualizar el puntero del servicio a dicha imagen:
-   ```bash
-   docker pull <usuario>/filmhub:v1.0.1
-   docker tag <usuario>/filmhub:v1.0.1 <usuario>/filmhub:latest
-   docker compose up -d web
-   ```
-3. El tiempo de recuperacion (MTTR) no requiere reconstruccion de codigo fuente ni compilacion intermedia.
-
-### 4.2. Procedimiento de Rollforward
-Si el fallo requiere la correccion de datos o un ajuste de codigo que no puede solucionarse mediante reversion de imagen:
-1. Crear una rama de intervencion rapida `hotfix/<version>-<resumen>` a partir de `main`.
-2. Programar la prueba de regresion que manifieste el defecto.
-3. Aplicar la solucion minima, validar en local e integrar directamente en `main` y `trunk` mediante Git CLI.
-4. Etiquetar la version con incremento de parche (`PATCH`), construyendo un nuevo artefacto inmutable.
+* **Opción principal elegida — Docker Compose (`docker/docker-compose.dev.yml`)**:
+  * Levanta de forma aislada la aplicación Flask con Python 3.13 (`Dockerfile.dev`), la base de datos MariaDB 12.0.2 (`Dockerfile.mariadb`), el proxy inverso Nginx (`nginx:1.29.1` en el puerto `80`) y los contenedores de Selenium Grid (`selenium-hub`, `selenium-chrome`, `selenium-firefox`) para pruebas E2E.
+  * El script `docker/entrypoints/development_entrypoint.sh` espera a que MariaDB esté lista, crea la base de datos de pruebas (`uvlhubdb_test`), aplica las migraciones de Alembic (`flask db upgrade`), siembra datos iniciales (`rosemary db:seed -y`) si la base de datos está vacía y arranca Flask con recarga automática (`--reload --debug`).
+  * La gestión cotidiana (linters, tests, migraciones, consola de BD) se realiza mediante la CLI del proyecto **`rosemary`**.
+* **Opción integrada con el editor — Dev Containers (`.devcontainer/devcontainer.json`)**:
+  * Quien trabaje con Visual Studio Code puede abrir el proyecto dentro del *Dev Container* configurado en el repositorio.
+  * Esto unifica automáticamente el intérprete de Python (`/opt/venv/bin/python`), el formateador (`black`), el linter (`flake8`) y las extensiones esenciales, manteniendo el entorno local homogéneo independientemente de que cada integrante use Windows, macOS o Linux.
+* **Alternativas descartadas para el día a día**:
+  * **Instalación directa / `venv` (`.env.local.example`)**: aísla únicamente las dependencias de Python, pero no MariaDB ni utilidades del sistema, lo que aumenta el riesgo de diferencias entre máquinas. Solo se contempla de forma puntual si alguien no puede ejecutar Docker.
+  * **Máquina virtual con Vagrant + Ansible (`vagrant/Vagrantfile`)**: aunque el repositorio base incluye esta configuración con Ubuntu 24.04 sobre VirtualBox (2 GB RAM, 4 vCPU), su consumo de disco y memoria y sus tiempos de arranque resultan excesivos para trabajar a diario en nuestros portátiles. Por ello optamos por contenedores Docker como mejor equilibrio entre aislamiento y agilidad.
 
 ---
 
-## 5. Monitoreo y Verificacion de Salud (Healthcheck)
+### 2.2. Entorno de Pruebas e Integración Continua (CI)
 
-El servicio cuenta con un endpoint `/health` que retorna el estado del servidor web y su conexion con la base de datos MariaDB:
-- Codigo de respuesta HTTP 200 en estado operativo.
-- Comprobacion periodica configurada en Docker Compose cada 30 segundos.
-- En caso de degradacion continua, Nginx desvia las peticiones hacia la pagina de contingencia `docker/nginx/html/502_prod.html`.
+Es un entorno **efímero, limpio y hermético** ejecutado en **GitHub Actions** (`ubuntu-24.04`) sin coste para el equipo. Al ejecutarse siempre sobre una máquina recién creada que se destruye al finalizar, evitamos la deriva de entornos (*environment drift*) y detectamos de inmediato dependencias no declaradas, ficheros olvidados o configuraciones locales ocultas.
+
+* **Nivel 1 — CI rápida (en cada `push` a cualquier rama)**:
+  * `CI_commits.yml`: valida el formato Conventional Commits (ignorando *merge commits*).
+  * `CI_lint.yml`: ejecuta `flake8`, `black --check` e `isort --check-only` sobre `app` y `rosemary`.
+  * `CI_pytest.yml`: levanta un servicio limpio `mariadb:12.0.2` con `healthcheck`, instala `requirements.txt` y `rosemary`, y ejecuta `pytest -m "not e2e" --cov=app` exigiendo cobertura mínima.
+* **Nivel 2 — CI completa (al integrar en la rama de integración y en `main`)**:
+  * `CI_full.yml`: ejecuta la suite E2E con Selenium (`pytest -v -m e2e`) contra MariaDB y realiza una compilación de comprobación (*dry-run*) de `docker/images/Dockerfile.render` para asegurar que el artefacto desplegable sigue construyéndose sin errores.
+* **Pruebas de carga (Locust)**:
+  * Por coste y tiempo de ejecución, hemos decidido no ejecutar las pruebas de carga (`rosemary locust`) en la CI automática; se lanzan de forma manual en local antes de hitos relevantes.
+
+---
+
+### 2.3. Entorno de Preproducción (*Staging*)
+
+El objetivo de preproducción es validar los cambios integrados en condiciones **lo más parecidas posible a producción** antes de llevarlos a `main` y exponerlos en el entorno final.
+
+Como somos un equipo de estudiantes sin presupuesto para alquilar servidores VPS ni infraestructuras dedicadas, adoptamos una solución pragmática con dos mecanismos complementarios:
+
+1. **Instancia de *Staging* en Render.com (opción principal en nube)**:
+   * Un servicio web independiente en Render.com (plan gratuito) apuntando a la rama de integración (`trunk`) y construido con el **mismo** `docker/images/Dockerfile.render` y el **mismo** `docker/entrypoints/render_entrypoint.sh` que producción.
+   * Utiliza `FLASK_ENV=production` y Gunicorn (exactamente igual que producción), pero con `FLASK_APP_NAME="Film-Hub (Staging)"` y conectado a una **base de datos MariaDB independiente** (en `filess.io`) con datos de prueba para no contaminar nunca la base de datos de producción.
+   * Nos sirve para que QA, Frontend y PM realicen pruebas de aceptación manuales, comprueben migraciones de base de datos en un contenedor real y validen la integración de los Work Items antes de cada seguimiento oficial.
+2. **Validación local del contenedor de producción (respaldo ante límites del plan gratuito)**:
+   * Si en algún momento las cuotas del plan gratuito (límite de horas o de bases de datos gratuitas) impiden mantener activa la instancia *staging* en la nube, el responsable de DevOps valida localmente la imagen construida con `Dockerfile.render` apuntando a una MariaDB local limpia antes de autorizar el paso a `main`.
+   * Así garantizamos en todo caso que se prueban la imagen multi-etapa, Gunicorn, la carga de módulos de producción (`features_prod` en `pyproject.toml`) y las migraciones de Alembic antes de desplegar.
+
+---
+
+### 2.4. Entorno de Producción
+
+Es el entorno accesible públicamente donde se ejecuta la versión estable de **Film-Hub** para usuarios finales y para la evaluación del proyecto.
+
+* **Plataforma PaaS — Render.com**:
+  * Elegimos Render frente a administrar un servidor VPS propio (con Nginx, certificados TLS, Watchtower y webhooks manuales) porque evita mantener máquinas configuradas a mano difíciles de reproducir (*servidores copo de nieve*), gestiona HTTPS automáticamente y el repositorio ya incluye `Dockerfile.render` y `render_entrypoint.sh` preparados para ello.
+* **Empaquetado reproducible (imagen Docker multi-etapa)**:
+  * `docker/images/Dockerfile.render` construye la imagen en dos etapas sobre `python:3.13-slim`: una etapa `builder` que compila las dependencias necesarias dentro de un entorno virtual `/opt/venv` y una etapa final ligera que solo incluye el runtime, `mariadb-client`, el código de `app/`, `migrations/`, `pyproject.toml` y los scripts de arranque.
+  * Al arrancar el contenedor, `render_entrypoint.sh` espera a la disponibilidad de MariaDB (`scripts/wait-for-db.sh`), aplica las migraciones pendientes con `flask db upgrade` y lanza la aplicación con **Gunicorn** en el puerto `80`.
+* **Base de datos externa**:
+  * MariaDB alojada en un proveedor gestionado con capa gratuita (como **filess.io**), conectada mediante variables de entorno (`MARIADB_HOSTNAME`, `MARIADB_PORT`, `MARIADB_DATABASE`, `MARIADB_USER`, `MARIADB_PASSWORD`). El arranque de la aplicación (`app/__init__.py`) respeta explícitamente puertos personalizados mediante `MARIADB_PORT`.
+* **Limitaciones conocidas y asumidas**:
+  * **Arranque en frío (*cold start*)**: el plan gratuito de Render suspende el servicio tras periodos de inactividad, por lo que la primera petición puede tardar unos segundos en responder.
+  * **Sistema de ficheros efímero**: al redesplegar o reiniciar el contenedor en el plan gratuito, los archivos guardados únicamente en disco local del contenedor pueden perderse; los metadatos persistentes viven siempre en MariaDB y los depósitos simulados se apoyan en `fakenodo`.
+  * **Sin alta disponibilidad ni escalado horizontal**: una única instancia es suficiente para el volumen de tráfico de nuestro proyecto.
+
+---
+
+## 3. Gestión de Configuración, Módulos y Secretos
+
+Para mantener la trazabilidad y la seguridad en todos los entornos, aplicamos las siguientes reglas:
+
+1. **Separación entre código y configuración**:
+   * El comportamiento específico de cada entorno (nombre de la app, modo de Flask, credenciales de base de datos, dominio, `SECRET_KEY`) nunca se codifica en el código fuente, sino que se inyecta mediante variables de entorno.
+   * En el repositorio solo se versionan plantillas de ejemplo sin datos reales: `.env.docker.example`, `.env.local.example`, `.env.docker.production.example` y `.env.vagrant.example`.
+2. **Protección de secretos**:
+   * El fichero `.env` real está excluido explícitamente en `.gitignore`.
+   * En GitHub Actions, el secreto `RENDER_DEPLOY_HOOK_URL` se almacena exclusivamente en el entorno protegido `production` de GitHub.
+   * En Render (tanto *staging* como producción), `SECRET_KEY` (obligatoria en `ProductionConfig`) y las credenciales de MariaDB se configuran desde el panel de variables de entorno de la plataforma.
+3. **Activación declarativa de funcionalidades por entorno**:
+   * El archivo `pyproject.toml` (`[tool.splent]`) declara de forma explícita qué módulos (`features`, `features_dev`, `features_prod`) se cargan según el entorno (`dev` frente a `prod`). Esto nos permite controlar qué se activa en cada entorno sin añadir herramientas externas de *feature flags*.
+4. **Migraciones de base de datos**:
+   * Cualquier cambio en el modelo de datos se gestiona siempre mediante migraciones versionadas en `migrations/` (Alembic / Flask-Migrate), nunca modificando tablas a mano en la base de datos de *staging* o producción.
+
+---
+
+## 4. Estrategia de Entrega, Despliegue y Recuperación
+
+### 4.1. Por qué elegimos Entrega Continua y no Despliegue Continuo Automático
+
+En Film-Hub hemos optado por **Entrega Continua (*Continuous Delivery*)** con aprobación manual para pasar a producción:
+
+* Como trabajamos con **EGCFlow sin Pull Requests internas** (integraciones por `git merge` en local), un despliegue automático inmediato tras cada `push` a `main` podría publicar un error humano sin filtro previo.
+* Con `CD_render.yml`, tras finalizar en verde `CI_full.yml` sobre `main`, el flujo queda en espera en el entorno `production` de GitHub hasta que el responsable de DevOps aprueba explícitamente el disparo del *Deploy Hook* de Render.
+* Asimismo, descartamos estrategias de *rollout* progresivo (*canary releases*, despliegue *blue-green* o balanceo de tráfico por porcentajes), ya que requieren múltiples instancias y observabilidad avanzada que no se justifican para el alcance y recursos de nuestro equipo.
+
+### 4.2. Recuperación ante Fallos: *Rollback* y *Rollforward*
+
+Asumiendo que incluso con CI/CD y preproducción puede llegar un fallo a producción, hemos definido dos respuestas según la naturaleza del problema:
+
+* ***Rollback* (vuelta atrás rápida)**:
+  * **Cuándo usarlo**: si el fallo aparece justo tras un despliegue y **no** ha habido migraciones destructivas en MariaDB (cuando la versión anterior sigue siendo compatible con el esquema y datos actuales).
+  * **Cómo ejecutarlo**:
+    1. Desde el panel de **Render.com**, seleccionar el último despliegue estable anterior y pulsar **Rollback** (recuperación en pocos minutos sin rehacer el código).
+    2. En Git, reflejar el estado en `main` si procede (por ejemplo mediante `git revert` para no reescribir la historia compartida) y registrar la incidencia en [Gestión de Bugs e Incidencias](gestion_bugs_e_incidencias.md).
+* ***Rollforward* (corrección hacia delante)**:
+  * **Cuándo usarlo**: si el despliegue introdujo una migración de esquema o un cambio de formato de datos incompatible con la versión anterior, donde volver atrás provocaría más errores.
+  * **Cómo ejecutarlo**:
+    1. Crear una rama `hotfix/<resumen>` desde `main`.
+    2. Añadir una prueba de regresión que reproduzca el fallo y aplicar la corrección mínima.
+    3. Validar en local y en CI, fusionar en `main` (y sincronizar de vuelta a `trunk`), y aprobar el nuevo despliegue en Render mediante `CD_render.yml`.
