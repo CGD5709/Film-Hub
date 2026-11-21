@@ -11,6 +11,7 @@ features = [
     "dataset",
     "explore",
     "featuremodel",
+    "filmdataset",
     "flamapy",
     "hubfile",
     "profile",
