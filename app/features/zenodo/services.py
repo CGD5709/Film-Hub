@@ -199,6 +199,20 @@ class ZenodoService(BaseService):
             raise Exception(error_message)
         return response.json()
 
+    def upload_dataset_file(self, dataset: DataSet, deposition_id: int, filename: str, user=None) -> dict:
+        """Upload an arbitrary dataset file by filename to a Zenodo deposition."""
+        data = {"name": filename}
+        user_id = current_user.id if user is None else user.id
+        file_path = os.path.join(uploads_folder_name(), f"user_{str(user_id)}", f"dataset_{dataset.id}", filename)
+
+        publish_url = f"{self.ZENODO_API_URL}/{deposition_id}/files"
+        with open(file_path, "rb") as file:
+            response = requests.post(publish_url, params=self.params, data=data, files={"file": file})
+        if response.status_code != 201:
+            error_message = f"Failed to upload files. Error details: {response.json()}"
+            raise Exception(error_message)
+        return response.json()
+
     def publish_deposition(self, deposition_id: int) -> dict:
         """
         Publish a deposition in Zenodo.
