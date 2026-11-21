@@ -187,3 +187,34 @@ def test_total_dataset_views_tracks_created_records(test_app, clean_database):
         # Deleting a row lowers the count even though the highest id survives.
         repo.delete(records[0].id)
         assert repo.total_dataset_views() == 1
+
+
+def test_count_by_dataset_id_isolates_downloads_per_dataset(test_app, clean_database):
+    with test_app.app_context():
+        owner = _make_user("owner@example.com")
+        first = _make_dataset(owner, title="First")
+        second = _make_dataset(owner, title="Second")
+
+        repo = DSDownloadRecordRepository()
+        repo.create(
+            user_id=owner.id,
+            dataset_id=first.id,
+            download_date=datetime.now(timezone.utc),
+            download_cookie="cookie-1",
+        )
+        repo.create(
+            user_id=None,
+            dataset_id=first.id,
+            download_date=datetime.now(timezone.utc),
+            download_cookie="cookie-2",
+        )
+        repo.create(
+            user_id=owner.id,
+            dataset_id=second.id,
+            download_date=datetime.now(timezone.utc),
+            download_cookie="cookie-3",
+        )
+
+        assert repo.count_by_dataset_id(first.id) == 2
+        assert repo.count_by_dataset_id(second.id) == 1
+
