@@ -217,4 +217,3 @@ def test_count_by_dataset_id_isolates_downloads_per_dataset(test_app, clean_data
 
         assert repo.count_by_dataset_id(first.id) == 2
         assert repo.count_by_dataset_id(second.id) == 1
-

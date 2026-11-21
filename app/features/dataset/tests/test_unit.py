@@ -148,4 +148,3 @@ def test_build_badge_snippets_returns_escaped_markdown_and_html():
     expected_alt = "Cine [2026] &amp; &quot;More&quot;"
     assert snippets["markdown"] == f'[![Cine \\[2026\\] & "More"]({base_url}/badge.svg)]({base_url})'
     assert snippets["html"] == f'<a href="{base_url}"><img src="{base_url}/badge.svg" alt="{expected_alt}" /></a>'
-
