@@ -12,7 +12,7 @@
 
 ## 1. Contexto y Descripción del Problema
 
-Inicialmente, Film-Hub (heredado de UVLHub) gestionaba la seguridad únicamente mediante autenticación con `@login_required` de `Flask-Login`. Todos los usuarios autenticados poseían los mismos privilegios sobre la plataforma y no existía diferenciación entre un usuario ordinario, un moderador de contenidos y un administrador del sistema.
+Inicialmente, Film-Hub gestionaba la seguridad únicamente mediante autenticación con `@login_required` de `Flask-Login`. Todos los usuarios autenticados poseían los mismos privilegios sobre la plataforma y no existía diferenciación entre un usuario ordinario, un moderador de contenidos y un administrador del sistema.
 
 Esto planteaba dos riesgos principales:
 1. Rutas críticas de infraestructura y administración (como `/zenodo/test`) quedaban abiertas a cualquier usuario con cuenta activa.
