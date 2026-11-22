@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, PasswordField, StringField, SubmitField
-from wtforms.validators import DataRequired, Email, Length
+from wtforms import BooleanField, HiddenField, PasswordField, SelectField, StringField, SubmitField
+from wtforms.validators import AnyOf, DataRequired, Email, Length
+
+from app.features.auth.models import ROLES
 
 
 class SignupForm(FlaskForm):
@@ -16,3 +18,13 @@ class LoginForm(FlaskForm):
     password = PasswordField("Password", validators=[DataRequired()])
     remember_me = BooleanField("Remember me")
     submit = SubmitField("Login")
+
+
+class RoleUpdateForm(FlaskForm):
+    user_id = HiddenField("User ID", validators=[DataRequired()])
+    role = SelectField(
+        "Role",
+        choices=[(r, r) for r in ROLES],
+        validators=[DataRequired(), AnyOf(ROLES, message=f"Role must be one of {ROLES}.")],
+    )
+    submit = SubmitField("Update")

@@ -87,13 +87,17 @@ def test_role_required_blocks_standard_user(test_client, test_app):
 
     test_client.post("/login", data={"email": "regular_user@example.com", "password": "pass1234"})
 
-    # Check /admin/users -> 403 Forbidden
+    # Check /admin/users -> 403 Forbidden with custom 403.html template
     response_admin = test_client.get("/admin/users")
     assert response_admin.status_code == 403
+    assert b"Forbidden" in response_admin.data
+    assert b"403" in response_admin.data
 
-    # Check /zenodo/test -> 403 Forbidden
+    # Check /zenodo/test -> 403 Forbidden with custom 403.html template
     response_zenodo = test_client.get("/zenodo/test")
     assert response_zenodo.status_code == 403
+    assert b"Forbidden" in response_zenodo.data
+    assert b"403" in response_zenodo.data
 
 
 def test_role_required_blocks_curator_from_admin_only(test_client, test_app):
@@ -269,3 +273,138 @@ def test_rosemary_user_promote_and_demote_cli(test_app):
         # Promoting non-existent user exits with non-zero or error message
         res4 = runner.invoke(user_promote, ["nobody@example.com", "admin"], obj=test_app)
         assert res4.exit_code != 0 or "not found" in res4.output.lower()
+
+
+def test_rosemary_user_promote_invalid_role_cli(test_app):
+    """Promoting with an invalid role via CLI aborts with error message."""
+    runner = CliRunner()
+    res = runner.invoke(user_promote, ["cli_test@example.com", "superhero"], obj=test_app)
+    assert res.exit_code != 0
+    assert "invalid role" in res.output.lower()
+
+
+def test_role_required_multiple_roles_curator_and_admin(test_app, test_client):
+    """Test routes protected by @role_required('admin', 'curator') via /curator/test."""
+    # 1. Anonymous -> redirect to login
+    test_client.get("/logout")
+    res_anon = test_client.get("/curator/test")
+    assert res_anon.status_code in (302, 303)
+    assert "/login" in res_anon.headers["Location"]
+
+    # 2. Regular user -> 403 Forbidden with custom 403.html template
+    with test_app.app_context():
+        user = User.query.filter_by(email="regular_for_multirole@example.com").first()
+        if not user:
+            user = User(email="regular_for_multirole@example.com", role="user")
+            user.set_password("pass1234")
+            db.session.add(user)
+            db.session.commit()
+
+    test_client.post("/login", data={"email": "regular_for_multirole@example.com", "password": "pass1234"})
+    res_user = test_client.get("/curator/test")
+    assert res_user.status_code == 403
+    assert b"Forbidden" in res_user.data
+    assert b"403" in res_user.data
+
+    # 3. Curator -> 200 OK
+    test_client.get("/logout")
+    with test_app.app_context():
+        curator = User.query.filter_by(email="curator_for_multirole@example.com").first()
+        if not curator:
+            curator = User(email="curator_for_multirole@example.com", role="curator")
+            curator.set_password("pass1234")
+            db.session.add(curator)
+            db.session.commit()
+
+    test_client.post("/login", data={"email": "curator_for_multirole@example.com", "password": "pass1234"})
+    res_curator = test_client.get("/curator/test")
+    assert res_curator.status_code == 200
+    assert b"OK Curator" in res_curator.data
+
+    # 4. Admin -> 200 OK
+    test_client.get("/logout")
+    with test_app.app_context():
+        admin = User.query.filter_by(email="admin_for_multirole@example.com").first()
+        if not admin:
+            admin = User(email="admin_for_multirole@example.com", role="admin")
+            admin.set_password("pass1234")
+            db.session.add(admin)
+            db.session.commit()
+
+    test_client.post("/login", data={"email": "admin_for_multirole@example.com", "password": "pass1234"})
+    res_admin = test_client.get("/curator/test")
+    assert res_admin.status_code == 200
+    assert b"OK Curator" in res_admin.data
+
+
+def test_admin_required_decorator(test_app, test_client):
+    """Test routes protected by @admin_required via /zenodo/test."""
+    with test_app.app_context():
+        mock_response = jsonify({"success": True})
+        for email, role in [
+            ("regular_for_adminreq@example.com", "user"),
+            ("curator_for_adminreq@example.com", "curator"),
+            ("admin_for_adminreq@example.com", "admin"),
+        ]:
+            u = User.query.filter_by(email=email).first()
+            if not u:
+                u = User(email=email, role=role)
+                u.set_password("pass1234")
+                db.session.add(u)
+        db.session.commit()
+
+    with patch(
+        "app.features.zenodo.services.ZenodoService.test_full_connection",
+        return_value=mock_response,
+    ):
+        # User -> 403
+        test_client.get("/logout")
+        test_client.post("/login", data={"email": "regular_for_adminreq@example.com", "password": "pass1234"})
+        res_user = test_client.get("/zenodo/test")
+        assert res_user.status_code == 403
+        assert b"Forbidden" in res_user.data
+
+        # Curator -> 403
+        test_client.get("/logout")
+        test_client.post("/login", data={"email": "curator_for_adminreq@example.com", "password": "pass1234"})
+        res_curator = test_client.get("/zenodo/test")
+        assert res_curator.status_code == 403
+        assert b"Forbidden" in res_curator.data
+
+        # Admin -> 200
+        test_client.get("/logout")
+        test_client.post("/login", data={"email": "admin_for_adminreq@example.com", "password": "pass1234"})
+        res_admin = test_client.get("/zenodo/test")
+        assert res_admin.status_code == 200
+
+
+def test_admin_users_post_error_handling(test_client, test_app):
+    """POST /admin/users handles invalid users or invalid roles cleanly."""
+    with test_app.app_context():
+        admin = User.query.filter_by(email="admin_test@example.com").first()
+        if not admin:
+            admin = User(email="admin_test@example.com", role="admin")
+            admin.set_password("pass1234")
+            db.session.add(admin)
+            db.session.commit()
+        admin_id = admin.id
+
+    test_client.post("/login", data={"email": "admin_test@example.com", "password": "pass1234"})
+
+    # 1. Non-existent user ID
+    res_nonexistent = test_client.post(
+        "/admin/users",
+        data={"user_id": 99999, "role": "curator"},
+        follow_redirects=True,
+    )
+    assert res_nonexistent.status_code == 200
+    assert b"not found" in res_nonexistent.data.lower()
+
+    # 2. Invalid role
+    res_invalid_role = test_client.post(
+        "/admin/users",
+        data={"user_id": admin_id, "role": "superadmin"},
+        follow_redirects=True,
+    )
+    assert res_invalid_role.status_code == 200
+    assert b"invalid" in res_invalid_role.data.lower()

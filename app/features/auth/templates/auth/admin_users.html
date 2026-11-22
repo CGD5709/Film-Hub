@@ -10,6 +10,23 @@
     </div>
 </div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="row mb-3">
+      <div class="col-12">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category in ['error', 'danger'] else category }} alert-dismissible fade show" role="alert">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="alert-message">
+              {{ message }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+{% endwith %}
+
 <div class="row mb-4">
     <div class="col-12">
         <div class="card shadow-sm border-0">
@@ -84,6 +101,7 @@
                                     </div>
                                 {% else %}
                                     <form action="{{ url_for('auth.admin_users') }}" method="POST" class="d-flex align-items-center gap-2">
+                                        {{ form.hidden_tag() }}
                                         <input type="hidden" name="user_id" value="{{ u.id }}">
                                         <select name="role" class="form-select form-select-sm" style="width: 140px;">
                                             {% for r in available_roles %}

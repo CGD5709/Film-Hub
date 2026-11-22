@@ -48,9 +48,18 @@ fetch('/zenodo/test')
 """
 
 
+def _login_as_admin(driver, host):
+    driver.get(f"{host}/login")
+    if not driver.find_elements(By.CSS_SELECTOR, 'a[href="/logout"]'):
+        driver.find_element(By.NAME, "email").send_keys("user1@example.com")
+        driver.find_element(By.NAME, "password").send_keys("1234")
+        driver.find_element(By.ID, "submit").click()
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href="/logout"]')))
+
+
 def _connection_check(driver, host):
-    """Ask ``/zenodo/test`` from the app origin, the way the upload page does."""
-    driver.get(host)
+    """Ask ``/zenodo/test`` from the app origin, authenticated as admin (Issue #188)."""
+    _login_as_admin(driver, host)
     driver.set_script_timeout(120)
     return driver.execute_async_script(FETCH_CONNECTION_CHECK)
 
@@ -60,14 +69,14 @@ def _record_url(deposition_id):
     return f"https://sandbox.zenodo.org/records/{deposition_id}"
 
 
-def test_connection_check_answers_anonymous_callers_with_a_success_flag():
+def test_connection_check_answers_admin_callers_with_a_success_flag():
     driver = initialize_driver()
     try:
         host = get_host_for_selenium_testing()
         result = _connection_check(driver, host)
 
-        # No session is established anywhere in this test.
-        assert not driver.find_elements(By.CSS_SELECTOR, 'a[href="/logout"]')
+        # Admin session is established because /zenodo/test is protected (Issue #188).
+        assert driver.find_elements(By.CSS_SELECTOR, 'a[href="/logout"]')
         assert result["status"] == 200
 
         body = result["body"]

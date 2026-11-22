@@ -2,11 +2,10 @@ from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_user, logout_user
 from splent_framework.utils.form_helpers import form_error
 
-from app import db
 from app.features.auth import auth_bp
 from app.features.auth.decorators import role_required
-from app.features.auth.forms import LoginForm, SignupForm
-from app.features.auth.models import ROLES, User
+from app.features.auth.forms import LoginForm, RoleUpdateForm, SignupForm
+from app.features.auth.models import ROLES
 from app.features.auth.services import AuthenticationService
 from app.features.profile.services import UserProfileService
 
@@ -52,31 +51,38 @@ def logout():
     return redirect(url_for("public.index"))
 
 
+@auth_bp.route("/curator/test", methods=["GET"])
+@role_required("admin", "curator")
+def curator_test():
+    """Endpoint demonstrating curator and admin access (Issue #188)."""
+    return "OK Curator", 200
+
+
 @auth_bp.route("/admin/users", methods=["GET", "POST"])
 @role_required("admin")
 def admin_users():
     """Admin page to list registered users and modify their roles (Issue #188)."""
+    form = RoleUpdateForm()
     if request.method == "POST":
-        user_id = request.form.get("user_id", type=int)
-        new_role = request.form.get("role")
+        if form.validate_on_submit():
+            user_id = int(form.user_id.data)
+            new_role = form.role.data
 
-        if not new_role or new_role not in ROLES:
-            flash(f"Invalid role '{new_role}'. Must be one of {ROLES}.", "danger")
+            target_user = authentication_service.get_by_id(user_id)
+            if not target_user:
+                flash(f"User with ID {user_id} not found.", "danger")
+                return redirect(url_for("auth.admin_users"))
+
+            if target_user.id == current_user.id and new_role != "admin":
+                flash("You cannot remove your own admin role to prevent losing administrative access.", "warning")
+                return redirect(url_for("auth.admin_users"))
+
+            authentication_service.update_role(target_user, new_role)
+            flash(f"Role of {target_user.email} updated to {new_role}.", "success")
             return redirect(url_for("auth.admin_users"))
 
-        target_user = User.query.get(user_id)
-        if not target_user:
-            flash(f"User with ID {user_id} not found.", "danger")
-            return redirect(url_for("auth.admin_users"))
-
-        if target_user.id == current_user.id and new_role != "admin":
-            flash("You cannot remove your own admin role to prevent losing administrative access.", "warning")
-            return redirect(url_for("auth.admin_users"))
-
-        target_user.role = new_role
-        db.session.commit()
-        flash(f"Role of {target_user.email} updated to {new_role}.", "success")
+        flash(f"Invalid form submission or role. Must be one of {ROLES}.", "danger")
         return redirect(url_for("auth.admin_users"))
 
-    users = User.query.order_by(User.id.asc()).all()
-    return render_template("auth/admin_users.html", users=users, available_roles=ROLES)
+    users = authentication_service.get_all_users()
+    return render_template("auth/admin_users.html", users=users, available_roles=ROLES, form=form)
