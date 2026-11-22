@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, HiddenField, PasswordField, SelectField, StringField, SubmitField
-from wtforms.validators import AnyOf, DataRequired, Email, Length
+from wtforms.validators import AnyOf, DataRequired, Email, Length, Regexp
 
 from app.features.auth.models import ROLES
 
@@ -21,7 +21,13 @@ class LoginForm(FlaskForm):
 
 
 class RoleUpdateForm(FlaskForm):
-    user_id = HiddenField("User ID", validators=[DataRequired()])
+    user_id = HiddenField(
+        "User ID",
+        validators=[
+            DataRequired(),
+            Regexp(r"^\d+$", message="User ID must be a numeric integer."),
+        ],
+    )
     role = SelectField(
         "Role",
         choices=[(r, r) for r in ROLES],

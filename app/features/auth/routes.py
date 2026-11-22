@@ -51,13 +51,6 @@ def logout():
     return redirect(url_for("public.index"))
 
 
-@auth_bp.route("/curator/test", methods=["GET"])
-@role_required("admin", "curator")
-def curator_test():
-    """Endpoint demonstrating curator and admin access (Issue #188)."""
-    return "OK Curator", 200
-
-
 @auth_bp.route("/admin/users", methods=["GET", "POST"])
 @role_required("admin")
 def admin_users():
@@ -65,7 +58,12 @@ def admin_users():
     form = RoleUpdateForm()
     if request.method == "POST":
         if form.validate_on_submit():
-            user_id = int(form.user_id.data)
+            try:
+                user_id = int(form.user_id.data)
+            except (ValueError, TypeError):
+                flash("Invalid user ID.", "danger")
+                return redirect(url_for("auth.admin_users"))
+
             new_role = form.role.data
 
             target_user = authentication_service.get_by_id(user_id)

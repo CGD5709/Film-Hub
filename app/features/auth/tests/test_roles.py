@@ -9,7 +9,8 @@ import pytest
 from click.testing import CliRunner
 from flask import jsonify
 
-from app import db
+from app import create_app, db
+from app.features.auth.decorators import role_required
 from app.features.auth.models import User
 from rosemary.commands.user_role import user_demote, user_promote
 
@@ -283,16 +284,25 @@ def test_rosemary_user_promote_invalid_role_cli(test_app):
     assert "invalid role" in res.output.lower()
 
 
-def test_role_required_multiple_roles_curator_and_admin(test_app, test_client):
-    """Test routes protected by @role_required('admin', 'curator') via /curator/test."""
+def test_role_required_multiple_roles_curator_and_admin():
+    """Test routes protected by @role_required('admin', 'curator') on a dynamic route."""
+    dynamic_app = create_app("testing")
+
+    @dynamic_app.route("/test-dynamic-curator")
+    @role_required("admin", "curator")
+    def dummy_curator():
+        return "OK Curator", 200
+
+    client = dynamic_app.test_client()
+
     # 1. Anonymous -> redirect to login
-    test_client.get("/logout")
-    res_anon = test_client.get("/curator/test")
+    client.get("/logout")
+    res_anon = client.get("/test-dynamic-curator")
     assert res_anon.status_code in (302, 303)
     assert "/login" in res_anon.headers["Location"]
 
     # 2. Regular user -> 403 Forbidden with custom 403.html template
-    with test_app.app_context():
+    with dynamic_app.app_context():
         user = User.query.filter_by(email="regular_for_multirole@example.com").first()
         if not user:
             user = User(email="regular_for_multirole@example.com", role="user")
@@ -300,15 +310,15 @@ def test_role_required_multiple_roles_curator_and_admin(test_app, test_client):
             db.session.add(user)
             db.session.commit()
 
-    test_client.post("/login", data={"email": "regular_for_multirole@example.com", "password": "pass1234"})
-    res_user = test_client.get("/curator/test")
+    client.post("/login", data={"email": "regular_for_multirole@example.com", "password": "pass1234"})
+    res_user = client.get("/test-dynamic-curator")
     assert res_user.status_code == 403
     assert b"Forbidden" in res_user.data
     assert b"403" in res_user.data
 
     # 3. Curator -> 200 OK
-    test_client.get("/logout")
-    with test_app.app_context():
+    client.get("/logout")
+    with dynamic_app.app_context():
         curator = User.query.filter_by(email="curator_for_multirole@example.com").first()
         if not curator:
             curator = User(email="curator_for_multirole@example.com", role="curator")
@@ -316,14 +326,14 @@ def test_role_required_multiple_roles_curator_and_admin(test_app, test_client):
             db.session.add(curator)
             db.session.commit()
 
-    test_client.post("/login", data={"email": "curator_for_multirole@example.com", "password": "pass1234"})
-    res_curator = test_client.get("/curator/test")
+    client.post("/login", data={"email": "curator_for_multirole@example.com", "password": "pass1234"})
+    res_curator = client.get("/test-dynamic-curator")
     assert res_curator.status_code == 200
     assert b"OK Curator" in res_curator.data
 
     # 4. Admin -> 200 OK
-    test_client.get("/logout")
-    with test_app.app_context():
+    client.get("/logout")
+    with dynamic_app.app_context():
         admin = User.query.filter_by(email="admin_for_multirole@example.com").first()
         if not admin:
             admin = User(email="admin_for_multirole@example.com", role="admin")
@@ -331,8 +341,8 @@ def test_role_required_multiple_roles_curator_and_admin(test_app, test_client):
             db.session.add(admin)
             db.session.commit()
 
-    test_client.post("/login", data={"email": "admin_for_multirole@example.com", "password": "pass1234"})
-    res_admin = test_client.get("/curator/test")
+    client.post("/login", data={"email": "admin_for_multirole@example.com", "password": "pass1234"})
+    res_admin = client.get("/test-dynamic-curator")
     assert res_admin.status_code == 200
     assert b"OK Curator" in res_admin.data
 
@@ -408,3 +418,12 @@ def test_admin_users_post_error_handling(test_client, test_app):
     )
     assert res_invalid_role.status_code == 200
     assert b"invalid" in res_invalid_role.data.lower()
+
+    # 3. Non-numeric user ID (prevents ValueError HTTP 500)
+    res_non_numeric = test_client.post(
+        "/admin/users",
+        data={"user_id": "not_an_int", "role": "curator"},
+        follow_redirects=True,
+    )
+    assert res_non_numeric.status_code == 200
+    assert b"invalid" in res_non_numeric.data.lower()

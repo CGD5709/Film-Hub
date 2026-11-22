@@ -101,7 +101,7 @@
                                     </div>
                                 {% else %}
                                     <form action="{{ url_for('auth.admin_users') }}" method="POST" class="d-flex align-items-center gap-2">
-                                        {{ form.hidden_tag() }}
+                                        {{ form.hidden_tag('csrf_token') }}
                                         <input type="hidden" name="user_id" value="{{ u.id }}">
                                         <select name="role" class="form-select form-select-sm" style="width: 140px;">
                                             {% for r in available_roles %}
