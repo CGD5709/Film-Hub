@@ -69,6 +69,10 @@ def admin_users():
             flash(f"User with ID {user_id} not found.", "danger")
             return redirect(url_for("auth.admin_users"))
 
+        if target_user.id == current_user.id and new_role != "admin":
+            flash("You cannot remove your own admin role to prevent losing administrative access.", "warning")
+            return redirect(url_for("auth.admin_users"))
+
         target_user.role = new_role
         db.session.commit()
         flash(f"Role of {target_user.email} updated to {new_role}.", "success")

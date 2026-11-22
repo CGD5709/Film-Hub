@@ -182,6 +182,34 @@ def test_admin_can_modify_user_role(test_client, test_app):
         assert updated.role == "admin"
 
 
+def test_admin_cannot_demote_themselves(test_client, test_app):
+    """An admin user cannot remove their own admin role via /admin/users."""
+    with test_app.app_context():
+        admin = User.query.filter_by(email="self_admin@example.com").first()
+        if not admin:
+            admin = User(email="self_admin@example.com", role="admin")
+            admin.set_password("pass1234")
+            db.session.add(admin)
+            db.session.commit()
+        admin_id = admin.id
+
+    test_client.post("/login", data={"email": "self_admin@example.com", "password": "pass1234"})
+
+    # Attempt self-demotion to user
+    response = test_client.post(
+        "/admin/users",
+        data={"user_id": admin_id, "role": "user"},
+        follow_redirects=True,
+    )
+    # The response must remain 200 (not 403 Forbidden) and user must remain admin
+    assert response.status_code == 200
+
+    with test_app.app_context():
+        reloaded = User.query.get(admin_id)
+        assert reloaded.role == "admin"
+        assert reloaded.is_admin is True
+
+
 def test_regular_user_cannot_modify_roles(test_client, test_app):
     """Non-admin users cannot POST to /admin/users."""
     with test_app.app_context():
