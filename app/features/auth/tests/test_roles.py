@@ -3,11 +3,14 @@
 Issue #188: Admin roles (admin, curator, user).
 """
 
+from unittest.mock import patch
+
 import pytest
 from click.testing import CliRunner
+from flask import jsonify
 
 from app import db
-from app.features.auth.models import ROLES, User
+from app.features.auth.models import User
 from rosemary.commands.user_role import user_demote, user_promote
 
 pytestmark = pytest.mark.integration
@@ -72,15 +75,15 @@ def test_role_required_blocks_anonymous_user(test_client):
     assert "/login" in response_zenodo.headers["Location"]
 
 
-def test_role_required_blocks_standard_user(test_client):
+def test_role_required_blocks_standard_user(test_client, test_app):
     """Users with role='user' receive HTTP 403 on admin-only routes."""
-    # Create and login as regular user
-    user = User.query.filter_by(email="regular_user@example.com").first()
-    if not user:
-        user = User(email="regular_user@example.com", role="user")
-        user.set_password("pass1234")
-        db.session.add(user)
-        db.session.commit()
+    with test_app.app_context():
+        user = User.query.filter_by(email="regular_user@example.com").first()
+        if not user:
+            user = User(email="regular_user@example.com", role="user")
+            user.set_password("pass1234")
+            db.session.add(user)
+            db.session.commit()
 
     test_client.post("/login", data={"email": "regular_user@example.com", "password": "pass1234"})
 
@@ -93,14 +96,15 @@ def test_role_required_blocks_standard_user(test_client):
     assert response_zenodo.status_code == 403
 
 
-def test_role_required_blocks_curator_from_admin_only(test_client):
+def test_role_required_blocks_curator_from_admin_only(test_client, test_app):
     """Curators receive HTTP 403 when accessing routes restricted strictly to 'admin'."""
-    curator = User.query.filter_by(email="curator_test@example.com").first()
-    if not curator:
-        curator = User(email="curator_test@example.com", role="curator")
-        curator.set_password("pass1234")
-        db.session.add(curator)
-        db.session.commit()
+    with test_app.app_context():
+        curator = User.query.filter_by(email="curator_test@example.com").first()
+        if not curator:
+            curator = User(email="curator_test@example.com", role="curator")
+            curator.set_password("pass1234")
+            db.session.add(curator)
+            db.session.commit()
 
     test_client.post("/login", data={"email": "curator_test@example.com", "password": "pass1234"})
 
@@ -111,14 +115,15 @@ def test_role_required_blocks_curator_from_admin_only(test_client):
     assert response_zenodo.status_code == 403
 
 
-def test_admin_can_access_admin_users_and_zenodo_test(test_client):
+def test_admin_can_access_admin_users_and_zenodo_test(test_client, test_app):
     """Admins can access /admin/users and /zenodo/test."""
-    admin = User.query.filter_by(email="admin_test@example.com").first()
-    if not admin:
-        admin = User(email="admin_test@example.com", role="admin")
-        admin.set_password("pass1234")
-        db.session.add(admin)
-        db.session.commit()
+    with test_app.app_context():
+        admin = User.query.filter_by(email="admin_test@example.com").first()
+        if not admin:
+            admin = User(email="admin_test@example.com", role="admin")
+            admin.set_password("pass1234")
+            db.session.add(admin)
+            db.session.commit()
 
     test_client.post("/login", data={"email": "admin_test@example.com", "password": "pass1234"})
 
@@ -126,58 +131,73 @@ def test_admin_can_access_admin_users_and_zenodo_test(test_client):
     assert response_admin.status_code == 200
     assert b"admin_test@example.com" in response_admin.data
 
-    response_zenodo = test_client.get("/zenodo/test")
-    assert response_zenodo.status_code == 200
+    with patch(
+        "app.features.zenodo.services.ZenodoService.test_full_connection",
+        return_value=jsonify({"success": True}),
+    ):
+        response_zenodo = test_client.get("/zenodo/test")
+        assert response_zenodo.status_code == 200
 
 
-def test_admin_can_modify_user_role(test_client):
+def test_admin_can_modify_user_role(test_client, test_app):
     """Admins can change a user's role via POST /admin/users."""
-    target = User.query.filter_by(email="target_user@example.com").first()
-    if not target:
-        target = User(email="target_user@example.com", role="user")
-        target.set_password("pass1234")
-        db.session.add(target)
-        db.session.commit()
+    with test_app.app_context():
+        target = User.query.filter_by(email="target_user@example.com").first()
+        if not target:
+            target = User(email="target_user@example.com", role="user")
+            target.set_password("pass1234")
+            db.session.add(target)
+            db.session.commit()
+        target_id = target.id
 
-    # Login as admin
-    admin = User.query.filter_by(email="admin_test@example.com").first()
-    if not admin:
-        admin = User(email="admin_test@example.com", role="admin")
-        admin.set_password("pass1234")
-        db.session.add(admin)
-        db.session.commit()
+        admin = User.query.filter_by(email="admin_test@example.com").first()
+        if not admin:
+            admin = User(email="admin_test@example.com", role="admin")
+            admin.set_password("pass1234")
+            db.session.add(admin)
+            db.session.commit()
 
     test_client.post("/login", data={"email": "admin_test@example.com", "password": "pass1234"})
 
     # Promote target to curator
     response = test_client.post(
         "/admin/users",
-        data={"user_id": target.id, "role": "curator"},
+        data={"user_id": target_id, "role": "curator"},
         follow_redirects=True,
     )
     assert response.status_code == 200
 
-    updated = User.query.get(target.id)
-    assert updated.role == "curator"
+    with test_app.app_context():
+        updated = User.query.get(target_id)
+        assert updated.role == "curator"
 
     # Promote target to admin
     test_client.post(
         "/admin/users",
-        data={"user_id": target.id, "role": "admin"},
+        data={"user_id": target_id, "role": "admin"},
         follow_redirects=True,
     )
-    updated = User.query.get(target.id)
-    assert updated.role == "admin"
+    with test_app.app_context():
+        updated = User.query.get(target_id)
+        assert updated.role == "admin"
 
 
-def test_regular_user_cannot_modify_roles(test_client):
+def test_regular_user_cannot_modify_roles(test_client, test_app):
     """Non-admin users cannot POST to /admin/users."""
-    regular = User.query.filter_by(email="regular_user@example.com").first()
+    with test_app.app_context():
+        regular = User.query.filter_by(email="regular_user@example.com").first()
+        if not regular:
+            regular = User(email="regular_user@example.com", role="user")
+            regular.set_password("pass1234")
+            db.session.add(regular)
+            db.session.commit()
+        regular_id = regular.id
+
     test_client.post("/login", data={"email": "regular_user@example.com", "password": "pass1234"})
 
     response = test_client.post(
         "/admin/users",
-        data={"user_id": regular.id, "role": "admin"},
+        data={"user_id": regular_id, "role": "admin"},
     )
     assert response.status_code == 403
 

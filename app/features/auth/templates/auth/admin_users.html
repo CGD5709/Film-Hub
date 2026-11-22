@@ -1,0 +1,89 @@
+{% extends "base_template.html" %}
+
+{% block title %}User Management - Roles | {{ FLASK_APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <h1 class="h2 mb-1"><b>User Roles Management</b></h1>
+        <p class="text-muted">Manage user privileges, assign administrative roles and control access across Film-Hub.</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title"><i class="align-middle me-1" data-feather="info"></i> Role Specifications</h5>
+                <ul class="mb-0">
+                    <li><span class="badge bg-danger">admin</span>: Full administrative access to the platform, user management, and critical operational endpoints.</li>
+                    <li><span class="badge bg-info text-dark">curator</span>: Responsible for evaluating, curating and validating public datasets within Film-Hub.</li>
+                    <li><span class="badge bg-secondary">user</span>: Default role for registered users, with standard permissions to upload and explore datasets.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0">Registered Users ({{ users|length }})</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 60px;">#ID</th>
+                            <th scope="col">User Email</th>
+                            <th scope="col">Profile Name</th>
+                            <th scope="col">Registered</th>
+                            <th scope="col">Current Role</th>
+                            <th scope="col" style="width: 280px;">Action / Assign Role</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td><strong>{{ u.id }}</strong></td>
+                            <td>{{ u.email }}</td>
+                            <td>
+                                {% if u.profile %}
+                                    {{ u.profile.name }} {{ u.profile.surname }}
+                                {% else %}
+                                    <span class="text-muted italic">No profile</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}</td>
+                            <td>
+                                {% if u.is_admin %}
+                                    <span class="badge bg-danger px-2 py-1"><i class="align-middle me-1" data-feather="shield"></i> admin</span>
+                                {% elif u.is_curator %}
+                                    <span class="badge bg-info text-dark px-2 py-1"><i class="align-middle me-1" data-feather="check-circle"></i> curator</span>
+                                {% else %}
+                                    <span class="badge bg-secondary px-2 py-1"><i class="align-middle me-1" data-feather="user"></i> user</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="{{ url_for('auth.admin_users') }}" method="POST" class="d-flex align-items-center gap-2">
+                                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <select name="role" class="form-select form-select-sm" style="width: 140px;">
+                                        {% for r in available_roles %}
+                                            <option value="{{ r }}" {% if u.role == r %}selected{% endif %}>{{ r }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        Update
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
