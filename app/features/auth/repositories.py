@@ -20,3 +20,6 @@ class UserRepository(BaseRepository):
 
     def get_by_email(self, email: str):
         return self.model.query.filter_by(email=email).first()
+
+    def get_all_ordered(self):
+        return self.model.query.order_by(self.model.id.asc()).all()

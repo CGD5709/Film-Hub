@@ -1,6 +1,6 @@
 from splent_framework.seeders.BaseSeeder import BaseSeeder
 
-from app.features.auth.models import User
+from app.features.auth.models import ROLE_ADMIN, ROLE_USER, User
 from app.features.profile.models import UserProfile
 
 
@@ -10,10 +10,10 @@ class AuthSeeder(BaseSeeder):
 
     def run(self):
 
-        # Seeding users
+        # Seeding users with initial roles (user1 is initial admin for local development)
         users = [
-            User(email="user1@example.com", password="1234"),
-            User(email="user2@example.com", password="1234"),
+            User(email="user1@example.com", password="1234", role=ROLE_ADMIN),
+            User(email="user2@example.com", password="1234", role=ROLE_USER),
         ]
 
         # Inserted users with their assigned IDs are returned by `self.seed`.

@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, render_template
 from flask_migrate import Migrate
 from splent_framework.configuration.configuration import get_app_version
 from splent_framework.db import db
@@ -38,9 +38,17 @@ def create_app(config_name: str = "development") -> Flask:
     register_features(app, env=env)
     LoggingManager(app).setup_logging()
     ErrorHandlerManager(app).register_error_handlers()
+    _register_403_error_handler(app)
     _setup_jinja_globals(app)
 
     return app
+
+
+def _register_403_error_handler(app: Flask) -> None:
+    @app.errorhandler(403)
+    def forbidden_error(e):
+        app.logger.warning("Forbidden Access: %s", str(e))
+        return render_template("403.html"), 403
 
 
 def _apply_database_port(app: Flask) -> None:

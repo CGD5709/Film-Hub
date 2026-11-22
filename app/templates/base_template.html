@@ -104,6 +104,19 @@ chico sundermann">
                         </a>
                     </li>
 
+                    {% if current_user.is_admin %}
+                    <li class="sidebar-header">
+                        Administration
+                    </li>
+
+                    <li class="sidebar-item {{ 'active' if request.endpoint == 'auth.admin_users' else '' }}">
+                        <a class="sidebar-link" href="{{ url_for('auth.admin_users') }}">
+                            <i class="align-middle" data-feather="shield"></i> <span
+                                class="align-middle">Manage roles</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
                     <li class="sidebar-header">
                         Options
                     </li>

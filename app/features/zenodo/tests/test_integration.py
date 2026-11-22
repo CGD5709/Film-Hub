@@ -8,7 +8,25 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app import db
+from app.features.auth.models import User
+
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def authenticated_admin(test_client, test_app):
+    """Authenticate an admin user because /zenodo/test is protected (Issue #188)."""
+    with test_app.app_context():
+        admin = User.query.filter_by(email="admin_zenodo@example.com").first()
+        if not admin:
+            admin = User(email="admin_zenodo@example.com", role="admin")
+            admin.set_password("zenodopass")
+            db.session.add(admin)
+            db.session.commit()
+    test_client.post("/login", data={"email": "admin_zenodo@example.com", "password": "zenodopass"})
+    yield
+    test_client.get("/logout")
 
 
 def _response(status_code, payload=None):
