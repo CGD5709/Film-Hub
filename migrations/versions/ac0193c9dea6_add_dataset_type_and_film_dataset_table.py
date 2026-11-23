@@ -1,7 +1,7 @@
 """add dataset_type and film_dataset table
 
 Revision ID: ac0193c9dea6
-Revises: 001
+Revises: a78bb2f87d2c
 Create Date: 2026-11-21 16:27:44.807619
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'ac0193c9dea6'
-down_revision = '001'
+down_revision = 'a78bb2f87d2c'
 branch_labels = None
 depends_on = None
 
