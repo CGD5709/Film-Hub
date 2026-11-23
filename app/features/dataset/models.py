@@ -74,6 +74,13 @@ class DataSet(db.Model):
     ds_meta_data = db.relationship("DSMetaData", backref=db.backref("data_set", uselist=False))
     feature_models = db.relationship("FeatureModel", backref="data_set", lazy=True, cascade="all, delete")
 
+    dataset_type = db.Column(db.String(50), nullable=False, default="uvl", server_default="uvl")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "uvl",
+        "polymorphic_on": dataset_type,
+    }
+
     def name(self):
         return self.ds_meta_data.title
 
@@ -127,7 +134,11 @@ class DataSet(db.Model):
             "files_count": self.get_files_count(),
             "total_size_in_bytes": self.get_file_total_size(),
             "total_size_in_human_format": self.get_file_total_size_for_human(),
+            "dataset_type": self.dataset_type,
         }
+
+    def view_template(self) -> str:
+        return "dataset/view_dataset.html"
 
     def __repr__(self):
         return f"DataSet<{self.id}>"
