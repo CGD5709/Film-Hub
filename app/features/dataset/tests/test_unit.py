@@ -86,6 +86,31 @@ def test_get_zenodo_url_points_at_the_deposition_record():
     assert DataSet.get_zenodo_url(dataset) == "https://zenodo.org/record/42"
 
 
+def test_get_zenodo_record_url_returns_none_without_deposition_id():
+    dataset = SimpleNamespace(ds_meta_data=SimpleNamespace(deposition_id=None))
+    assert DataSet.get_zenodo_record_url(dataset) is None
+
+
+def test_get_zenodo_record_url_points_to_fakenodo_when_configured(monkeypatch):
+    monkeypatch.setenv("ZENODO_API_URL", "http://localhost:5000/fakenodo/api/deposit/depositions")
+    dataset = SimpleNamespace(ds_meta_data=SimpleNamespace(deposition_id=42))
+    assert DataSet.get_zenodo_record_url(dataset) == "http://localhost:5000/fakenodo/records/42"
+
+
+def test_get_zenodo_record_url_defaults_to_sandbox_in_development(monkeypatch):
+    monkeypatch.delenv("ZENODO_API_URL", raising=False)
+    monkeypatch.setenv("FLASK_ENV", "development")
+    dataset = SimpleNamespace(ds_meta_data=SimpleNamespace(deposition_id=42))
+    assert DataSet.get_zenodo_record_url(dataset) == "https://sandbox.zenodo.org/records/42"
+
+
+def test_get_zenodo_record_url_defaults_to_production_in_production(monkeypatch):
+    monkeypatch.delenv("ZENODO_API_URL", raising=False)
+    monkeypatch.setenv("FLASK_ENV", "production")
+    dataset = SimpleNamespace(ds_meta_data=SimpleNamespace(deposition_id=42))
+    assert DataSet.get_zenodo_record_url(dataset) == "https://zenodo.org/records/42"
+
+
 def test_files_and_sizes_are_aggregated_across_feature_models():
     dataset = SimpleNamespace(
         feature_models=[

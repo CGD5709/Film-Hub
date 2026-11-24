@@ -20,6 +20,7 @@ features = [
     "zenodo",
 ]
 features_dev = [
+    "fakenodo",
     "webhook",
 ]
 # webhook is deliberately in BOTH env lists: production needs /webhook/deploy
