@@ -218,3 +218,48 @@ def test_build_download_archive_yields_an_empty_zip_when_nothing_was_uploaded(
         with ZipFile(os.path.join(tmp_dir, zip_name)) as archive:
             assert archive.namelist() == []
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_get_uvlhub_doi_and_badge_url_use_https_in_production(test_app, clean_database, monkeypatch):
+    monkeypatch.setenv("DOMAIN", "filmhub.onrender.com")
+    monkeypatch.setenv("FLASK_ENV", "production")
+    monkeypatch.delenv("URL_SCHEME", raising=False)
+    with test_app.app_context():
+        owner = _make_user("owner@example.com")
+        dataset = _make_dataset(owner, title="Published", doi="10.1234/published")
+
+        service = DataSetService()
+        assert service.get_uvlhub_doi(dataset) == "https://filmhub.onrender.com/doi/10.1234/published"
+        assert service.get_badge_url(dataset) == "https://filmhub.onrender.com/doi/10.1234/published/badge.svg"
+
+
+def test_get_uvlhub_doi_respects_explicit_url_scheme_and_domain_protocol(test_app, clean_database, monkeypatch):
+    monkeypatch.setenv("FLASK_ENV", "development")
+    monkeypatch.setenv("DOMAIN", "staging.filmhub.org")
+    monkeypatch.setenv("URL_SCHEME", "https")
+    with test_app.app_context():
+        owner = _make_user("owner@example.com")
+        dataset = _make_dataset(owner, title="Staging", doi="10.1234/staging")
+
+        service = DataSetService()
+        assert service.get_uvlhub_doi(dataset) == "https://staging.filmhub.org/doi/10.1234/staging"
+
+        monkeypatch.setenv("DOMAIN", "https://custom.example.org/")
+        monkeypatch.setenv("URL_SCHEME", "http")
+        assert service.get_uvlhub_doi(dataset) == "https://custom.example.org/doi/10.1234/staging"
+        assert service.get_badge_url(dataset) == "https://custom.example.org/doi/10.1234/staging/badge.svg"
+
+
+def test_download_record_service_count_by_dataset_id(test_app, clean_database):
+    with test_app.app_context():
+        owner = _make_user("owner@example.com")
+        first = _make_dataset(owner, title="First")
+        second = _make_dataset(owner, title="Second")
+
+        service = DSDownloadRecordService()
+        service.record_download(owner, first.id, "cookie-a")
+        service.record_download(owner, first.id, "cookie-b")
+        service.record_download(owner, second.id, "cookie-c")
+
+        assert service.count_by_dataset_id(first.id) == 2
+        assert service.count_by_dataset_id(second.id) == 1

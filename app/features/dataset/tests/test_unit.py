@@ -6,10 +6,18 @@ instead of persisted rows.
 """
 
 import hashlib
+import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 
 import pytest
 
+from app.features.dataset.badge import (
+    build_badge_snippets,
+    format_downloads,
+    render_dataset_badge_svg,
+    render_not_found_badge_svg,
+    truncate_title,
+)
 from app.features.dataset.forms import DataSetForm
 from app.features.dataset.models import DataSet, PublicationType
 from app.features.dataset.services import SizeService, calculate_checksum_and_size
@@ -94,3 +102,49 @@ def test_files_and_sizes_are_aggregated_across_feature_models():
 def test_publication_type_none_is_the_documented_default_value():
     assert PublicationType.NONE.value == "none"
     assert PublicationType("article") is PublicationType.JOURNAL_ARTICLE
+
+
+def test_truncate_title_handles_empty_short_and_long_titles():
+    assert truncate_title("") == "Dataset"
+    assert truncate_title("   ") == "Dataset"
+    assert truncate_title("Movie Dataset") == "Movie Dataset"
+    assert truncate_title("   Very   Long    Cinematic Dataset Title  ") == "Very Long Cinematic D..."
+
+
+def test_format_downloads_handles_singular_plural_and_negative_values():
+    assert format_downloads(-5) == "0 downloads"
+    assert format_downloads(0) == "0 downloads"
+    assert format_downloads(1) == "1 download"
+    assert format_downloads(42) == "42 downloads"
+
+
+def test_render_dataset_badge_svg_returns_valid_escaped_xml():
+    svg = render_dataset_badge_svg('Film <Hub> & "TMDB" Collection', "10.1234/film.1", 12)
+    root = ET.fromstring(svg)
+
+    assert root.tag.endswith("svg")
+    assert "Film &lt;Hub&gt; &amp; &quot;TMDB&quot; C..." in svg
+    assert "DOI 10.1234/film.1" in svg
+    assert "12 downloads" in svg
+
+
+def test_render_not_found_badge_svg_returns_valid_xml():
+    svg = render_not_found_badge_svg()
+    root = ET.fromstring(svg)
+
+    assert root.tag.endswith("svg")
+    assert "Film-Hub" in svg
+    assert "dataset not found" in svg
+
+
+def test_build_badge_snippets_returns_escaped_markdown_and_html():
+    base_url = "https://filmhub.example/doi/10.1234/1"
+    snippets = build_badge_snippets(
+        title='Cine [2026] & "More"',
+        dataset_url=base_url,
+        badge_url=f"{base_url}/badge.svg",
+    )
+
+    expected_alt = "Cine [2026] &amp; &quot;More&quot;"
+    assert snippets["markdown"] == f'[![Cine \\[2026\\] & "More"]({base_url}/badge.svg)]({base_url})'
+    assert snippets["html"] == f'<a href="{base_url}"><img src="{base_url}/badge.svg" alt="{expected_alt}" /></a>'

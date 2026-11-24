@@ -167,15 +167,24 @@
                     {{ dataset.get_uvlhub_doi() }}
                 </div>
 
-                <button type="button" class="btn doi_button btn-sm" onclick="copyText('dataset_doi_uvlhub')">
-                    <span class="button_doi_id">
-                        <i data-feather="clipboard" class="center-button-icon" style="cursor: pointer"></i>
-                        <b>DOI</b>
-                    </span>
-                    <span class="doi_text">
-                        {{ dataset.get_uvlhub_doi() }}
-                    </span>
-                </button>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <button type="button" class="btn doi_button btn-sm" onclick="copyText('dataset_doi_uvlhub')">
+                        <span class="button_doi_id">
+                            <i data-feather="clipboard" class="center-button-icon" style="cursor: pointer"></i>
+                            <b>DOI</b>
+                        </span>
+                        <span class="doi_text">
+                            {{ dataset.get_uvlhub_doi() }}
+                        </span>
+                    </button>
+
+                    {% if badge_url %}
+                    <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center" style="border-radius: 5px; padding: 8px 12px;" data-bs-toggle="modal" data-bs-target="#badgeModal" id="open_badge_modal">
+                        <i data-feather="award" class="center-button-icon"></i>
+                        Embed badge
+                    </button>
+                    {% endif %}
+                </div>
                 
                 <div id="dataset_doi_uvlhub" style="display: none">
                     {{ dataset.get_uvlhub_doi() }}
@@ -362,6 +371,49 @@
     </div>
 </div>
 
+{% if dataset.ds_meta_data.dataset_doi and badge_url %}
+<div class="modal fade" id="badgeModal" tabindex="-1" aria-labelledby="badgeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="badgeModalLabel">Embed dataset badge</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary mb-2">Preview</p>
+                <div class="mb-3">
+                    <a href="{{ dataset.get_uvlhub_doi() }}" target="_blank" rel="noopener noreferrer">
+                        <img src="{{ badge_url }}" alt="{{ dataset.ds_meta_data.title }}" />
+                    </a>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label mb-0 fw-bold" for="badge_markdown_snippet">Markdown</label>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="copy_badge_markdown" onclick="copyBadgeSnippet('badge_markdown_snippet', this)">
+                            <i data-feather="copy" class="center-button-icon"></i>
+                            Copy Markdown
+                        </button>
+                    </div>
+                    <pre id="badge_markdown_snippet" class="p-2 bg-light border rounded mb-0" style="white-space: pre-wrap; word-break: break-all;">{{ badge_markdown }}</pre>
+                </div>
+
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label mb-0 fw-bold" for="badge_html_snippet">HTML</label>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="copy_badge_html" onclick="copyBadgeSnippet('badge_html_snippet', this)">
+                            <i data-feather="copy" class="center-button-icon"></i>
+                            Copy HTML
+                        </button>
+                    </div>
+                    <pre id="badge_html_snippet" class="p-2 bg-light border rounded mb-0" style="white-space: pre-wrap; word-break: break-all;">{{ badge_html }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script type="text/javascript" src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
 
@@ -492,6 +544,22 @@
             console.log('Text copied to clipboard');
         }).catch(err => {
             console.error('Failed to copy text: ', err);
+        });
+    }
+
+    function copyBadgeSnippet(elementId, button) {
+        const text = document.getElementById(elementId).textContent.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            const originalHtml = button.innerHTML;
+            button.textContent = 'Copied!';
+            setTimeout(() => {
+                button.innerHTML = originalHtml;
+                if (typeof feather !== 'undefined') {
+                    feather.replace();
+                }
+            }, 1500);
+        }).catch(err => {
+            console.error('Failed to copy badge snippet: ', err);
         });
     }
 </script>

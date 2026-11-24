@@ -4,14 +4,21 @@ Covers the HTML routes (list / DOI landing page / unsynchronized view / temp
 file endpoints) as well as the ``/api/v1/datasets`` REST resource.
 """
 
+import html
 import io
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 import pytest
 
 from app.features.auth.repositories import UserRepository
 from app.features.dataset.models import PublicationType
-from app.features.dataset.repositories import DataSetRepository, DOIMappingRepository, DSMetaDataRepository
+from app.features.dataset.repositories import (
+    DataSetRepository,
+    DOIMappingRepository,
+    DSDownloadRecordRepository,
+    DSMetaDataRepository,
+)
 from app.features.featuremodel.repositories import FeatureModelRepository, FMMetaDataRepository
 from app.features.hubfile.repositories import HubfileRepository
 
@@ -231,3 +238,85 @@ def test_api_returns_a_single_dataset_or_404(test_client):
     missing = test_client.get(f"/api/v1/datasets/{dataset_id + 999}")
     assert missing.status_code == 404
     assert missing.get_json()["message"] == "DataSet not found"
+
+
+def test_dataset_badge_endpoint_returns_valid_svg_with_download_count(test_client):
+    user_id = _signup(test_client)
+    with test_client.application.app_context():
+        dataset = _make_dataset(user_id, title="Cinema Classics Dataset Collection", doi="10.1234/cinema")
+        other = _make_dataset(user_id, title="Other dataset", doi="10.1234/other")
+        downloads_repo = DSDownloadRecordRepository()
+        downloads_repo.create(
+            user_id=user_id,
+            dataset_id=dataset.id,
+            download_date=datetime.now(timezone.utc),
+            download_cookie="cookie-1",
+        )
+        downloads_repo.create(
+            user_id=None,
+            dataset_id=dataset.id,
+            download_date=datetime.now(timezone.utc),
+            download_cookie="cookie-2",
+        )
+        downloads_repo.create(
+            user_id=user_id,
+            dataset_id=other.id,
+            download_date=datetime.now(timezone.utc),
+            download_cookie="cookie-3",
+        )
+
+    response = test_client.get("/doi/10.1234/cinema/badge.svg")
+    body = response.get_data(as_text=True)
+    root = ET.fromstring(body)
+
+    assert response.status_code == 200
+    assert response.headers["Content-Type"].startswith("image/svg+xml")
+    assert "max-age=" in response.headers.get("Cache-Control", "")
+    assert root.tag.endswith("svg")
+    assert "Cinema Classics Datas..." in body
+    assert "DOI 10.1234/cinema" in body
+    assert "2 downloads" in body
+
+
+def test_dataset_badge_endpoint_redirects_a_superseded_doi(test_client):
+    user_id = _signup(test_client)
+    with test_client.application.app_context():
+        _make_dataset(user_id, title="Findable dataset", doi="10.5678/new")
+        DOIMappingRepository().create(dataset_doi_old="10.1234/old", dataset_doi_new="10.5678/new")
+
+    response = test_client.get("/doi/10.1234/old/badge.svg", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/doi/10.5678/new/badge.svg")
+
+
+def test_dataset_badge_endpoint_404s_for_an_unknown_doi(test_client):
+    response = test_client.get("/doi/10.1234/does-not-exist/badge.svg")
+    body = response.get_data(as_text=True)
+    root = ET.fromstring(body)
+
+    assert response.status_code == 404
+    assert response.headers["Content-Type"].startswith("image/svg+xml")
+    assert root.tag.endswith("svg")
+    assert "dataset not found" in body
+
+
+def test_doi_landing_page_includes_embed_badge_modal_and_https_snippets_in_production(test_client, monkeypatch):
+    monkeypatch.setenv("DOMAIN", "filmhub.onrender.com")
+    monkeypatch.setenv("FLASK_ENV", "production")
+    monkeypatch.delenv("URL_SCHEME", raising=False)
+
+    user_id = _signup(test_client)
+    with test_client.application.app_context():
+        _make_dataset(user_id, title="Movie Trends", doi="10.1234/movies")
+
+    response = test_client.get("/doi/10.1234/movies/")
+    body = response.get_data(as_text=True)
+    decoded = html.unescape(body)
+
+    base_url = "https://filmhub.onrender.com/doi/10.1234/movies"
+    assert response.status_code == 200
+    assert 'id="badgeModal"' in body
+    assert f"{base_url}/badge.svg" in body
+    assert f"[![Movie Trends]({base_url}/badge.svg)]({base_url})" in decoded
+    assert f'<a href="{base_url}"><img src="{base_url}/badge.svg" alt="Movie Trends" /></a>' in decoded
