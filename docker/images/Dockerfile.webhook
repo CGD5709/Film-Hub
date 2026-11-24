@@ -1,0 +1,75 @@
+# Production image for the webhook-driven deployment, built in two stages.
+#
+# Only one dependency compiles from source (python-sat); everything else in
+# requirements.txt arrives as a wheel. The toolchain that builds it weighs
+# hundreds of megabytes and has no business in an image that faces the
+# internet, so it lives in a stage that is thrown away.
+#
+# What this image does keep, and the plain production one does not, is git and
+# the Docker CLI: the deploy sequence pulls the repository and restarts its own
+# sibling containers through the host's daemon.
+
+# --------------------------------------------------------------- build stage --
+FROM python:3.13-slim AS builder
+
+ENV PIP_ROOT_USER_ACTION=ignore
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential gcc libc-dev python3-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install into a virtualenv so the runtime stage copies one self-contained
+# directory instead of picking pieces out of the system site-packages.
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# ------------------------------------------------------------- runtime stage --
+FROM python:3.13-slim
+
+ENV PIP_ROOT_USER_ACTION=ignore
+
+# mariadb-client for wait-for-db.sh, git for git_update.sh, curl for the Docker
+# repository below. bash and libstdc++, which python-sat's extension links
+# against, already ship in the base image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends mariadb-client curl git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Docker CLI
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates gnupg lsb-release \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set the working directory in the container to /workspace
+WORKDIR /workspace
+ENV PYTHONPATH=/workspace
+
+# Copy requirements.txt into the working directory /workspace
+COPY requirements.txt .
+
+# Copy the wait-for-db.sh script and set execution permissions
+COPY --chmod=0755 scripts/wait-for-db.sh ./scripts/
+
+# Copy the git_update.sh script and set execution permissions
+COPY --chmod=0755 scripts/git_update.sh ./scripts/
+
+# Copy the restart_container.sh script and set execution permissions
+COPY --chmod=0755 scripts/restart_container.sh ./scripts/
+
+# Configure git safe directory
+RUN git config --global --add safe.directory /workspace
+
+# Expose port 5000
+EXPOSE 5000

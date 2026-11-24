@@ -1,0 +1,17 @@
+from locust import HttpUser, TaskSet, between, task
+
+from splent_framework.environment.host import get_host_for_locust_testing
+
+
+class {{ feature_name | pascalcase }}Behavior(TaskSet):
+    @task
+    def index(self):
+        response = self.client.get("/{{ feature_name }}")
+        if response.status_code != 200:
+            print(f"{{ feature_name | pascalcase }} index failed: {response.status_code}")
+
+
+class {{ feature_name | pascalcase }}User(HttpUser):
+    tasks = [{{ feature_name | pascalcase }}Behavior]
+    wait_time = between(5, 9)
+    host = get_host_for_locust_testing()

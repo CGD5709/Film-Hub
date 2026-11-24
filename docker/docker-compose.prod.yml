@@ -1,0 +1,62 @@
+services:
+
+  web:
+    container_name: web_app_container
+    image: <your_dockerhub_name>/uvlhub:latest
+    env_file:
+      - ../.env
+    # Not published to the host: nginx is the only thing that talks to the app,
+    # and it does so over the compose network. Publishing 5000 would let anyone
+    # reach the application bypassing the proxy -- and, in the SSL stack, would
+    # serve it in plain HTTP alongside the TLS listener.
+    expose:
+      - "5000"
+    depends_on:
+      - db
+    restart: always
+    volumes:
+      - ./entrypoints/production_entrypoint.sh:/workspace/entrypoint.sh
+      - ../scripts:/workspace/scripts
+      - ../migrations:/workspace/migrations
+      - ../uploads:/workspace/uploads
+    # Run the entrypoint as PID 1 (no "sh -c" wrapper), so its final "exec"
+    # replaces it and the application itself receives SIGTERM. Wrapped, PID 1
+    # was a shell that never execs and never forwards the signal: docker stop
+    # waited out the grace period and killed the app instead of letting it
+    # shut down cleanly.
+    command: [ "sh", "/workspace/entrypoint.sh" ]
+
+  db:
+    container_name: mariadb_container
+    env_file:
+      - ../.env
+    image: mariadb:12.0.2
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    # Reachable from the other containers by service name; deliberately not
+    # published to the host, which would expose the database to the network.
+    volumes:
+      - db_data:/var/lib/mysql
+
+  nginx:
+    container_name: nginx_web_server_container
+    image: nginx:1.29.1
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./nginx/html:/usr/share/nginx/html
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+    restart: always
+
+  watchtower:
+    container_name: watchtower_container
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --cleanup --interval 120 web_app_container
+    restart: always
+
+volumes:
+  db_data:

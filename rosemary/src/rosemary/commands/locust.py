@@ -1,0 +1,233 @@
+import os
+import signal
+import subprocess
+
+import click
+import psutil
+
+import docker
+
+
+@click.command("locust", help="Launches Locust for load testing based on the environment.")
+@click.argument("feature", required=False)
+def locust(feature):
+
+    # Absolute paths
+    working_dir = os.getenv("WORKING_DIR", "")
+    docker_dir = os.path.join(working_dir, "docker/")
+    features_dir = os.path.join(working_dir, "app/features")
+
+    def validate_feature(feature):
+        """Check if the feature exists."""
+        if feature:
+            feature_path = os.path.join(features_dir, feature)
+            if not os.path.exists(feature_path):
+                raise click.UsageError(f"Feature '{feature}' does not exist.")
+            locustfile_path = os.path.join(feature_path, "tests", "locustfile.py")
+            if not os.path.exists(locustfile_path):
+                raise click.UsageError(
+                    f"Locustfile for feature '{feature}' does not exist at path " f"'{locustfile_path}'."
+                )
+
+    def resolve_locustfiles(feature):
+        """Return the -f argument: one feature's file, or None for all of them.
+
+        The whole-project run is delegated to splent_framework's
+        locustfile_bootstrap, which since 1.7.1 discovers
+        app/features/*/tests/locustfile.py itself. In Docker, omitting -f lets
+        the locust entrypoint resolve the bootstrap from site-packages; in the
+        console branch the bootstrap module path is passed explicitly.
+        """
+        if feature:
+            return os.path.join(features_dir, feature, "tests", "locustfile.py")
+        return None
+
+    def run_docker_locust(volume_name, network_name, feature):
+        """Build and run the Locust container with the specified volume and network."""
+
+        try:
+            # Check if the container already exists
+            client.containers.get("locust_container")
+            click.echo("Locust container is already running.")
+            return
+        except docker.errors.NotFound:
+            pass  # Container does not exist, proceed to create it
+
+        click.echo(f"Starting Locust in Docker environment on port 8089 with volume: {volume_name}...")
+
+        # Build Locust's image
+        build_command = [
+            "docker",
+            "build",
+            "-f",
+            os.path.join(docker_dir, "images/Dockerfile.locust"),
+            "-t",
+            "locust-image",
+            ".",
+        ]
+        click.echo(f"Build command: {' '.join(build_command)}")
+        subprocess.run(build_command, check=True)
+
+        # Run the Locust container. When a feature is supplied, point locust at
+        # its locustfile; otherwise let the container's entrypoint resolve the
+        # default bootstrap from splent_framework's site-packages.
+        up_command = [
+            "docker",
+            "run",
+            "-d",
+            "-p",
+            "8089:8089",
+            "-v",
+            # Mount where the image expects the code. Dockerfile.locust sets
+            # WORKDIR and PYTHONPATH to /workspace, and the -f path below is
+            # built from WORKING_DIR, which is /workspace/ in this container.
+            # Mounting on /app left locust unable to find any locustfile.
+            f"{volume_name}:/workspace",
+            "--name",
+            "locust_container",
+            "--network",
+            network_name,
+            # Without this the locustfiles resolve their target through
+            # get_host_for_locust_testing, which maps an unset WORKING_DIR to
+            # http://localhost:5000 and would point locust at itself.
+            "-e",
+            "WORKING_DIR=/workspace/",
+            "locust-image",
+        ]
+        locustfile = resolve_locustfiles(feature)
+        if locustfile:
+            up_command.extend(["-f", locustfile])
+        # With no -f, docker/entrypoints/locust_entrypoint.sh resolves the
+        # framework bootstrap, which discovers every feature's locustfile.
+
+        click.echo(f"Docker Run command: {' '.join(up_command)}")
+        subprocess.run(up_command, check=True)
+        click.echo(click.style("Locust is running at http://localhost:8089", fg="green"))
+
+    def is_locust_running():
+        """Check if Locust is already running."""
+        for proc in psutil.process_iter(["pid", "name"]):
+            if proc.info["name"] == "locust":
+                return True
+        return False
+
+    def run_in_console(feature):
+
+        if is_locust_running():
+            click.echo("Locust is already running.")
+            return
+
+        locustfile = resolve_locustfiles(feature)
+        if not locustfile:
+            from splent_framework.bootstraps import locustfile_bootstrap
+
+            locustfile = locustfile_bootstrap.__file__
+        locust_command = ["locust", "-f", locustfile]
+        click.echo(f"Locust command: {' '.join(locust_command)}")
+        subprocess.Popen(
+            locust_command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        click.echo(click.style("Locust is running at http://localhost:8089", fg="green"))
+
+    def run_local_locust(feature):
+        """Run Locust in the local environment."""
+        click.echo("Starting Locust in local environment on port 8089...")
+        run_in_console(feature)
+
+    def run_vagrant_locust(feature):
+        """Run Locust in the Vagrant environment."""
+        click.echo("Starting Locust in Vagrant environment on port 8089...")
+        run_in_console(feature)
+
+    # Validate feature if provided
+    if feature:
+        validate_feature(feature)
+
+    if working_dir == "/workspace/":
+        client = docker.from_env()
+
+        try:
+            web_container = client.containers.get("web_app_container")
+            if web_container.status != "running":
+                raise ValueError(f"web_app_container exists but is {web_container.status}; start the dev stack first")
+            volume_name = next(
+                (
+                    mount.get("Name") or mount.get("Source")
+                    for mount in web_container.attrs["Mounts"]
+                    if mount["Destination"] == "/workspace"
+                ),
+                None,
+            )
+
+            if not volume_name:
+                raise ValueError("No volume or bind mount found mounted on /workspace")
+
+            # Derive the network from the running web container instead of assuming
+            # one. Compose names it "<project>_uvlhub_network", and the project
+            # defaults to the directory holding the compose file ("docker") but is
+            # overridden by `docker compose -p <name>`, so a hardcoded name breaks
+            # as soon as anyone runs the stack under a different project.
+            networks = list(web_container.attrs["NetworkSettings"]["Networks"])
+            if not networks:
+                raise ValueError("Web container is not attached to any network")
+            network_name = networks[0]
+
+            run_docker_locust(volume_name, network_name, feature)
+
+        except docker.errors.NotFound:
+            click.echo(click.style("Web container not found.", fg="red"))
+        except Exception as e:
+            click.echo(click.style(f"An error occurred: {str(e)}", fg="red"))
+
+    elif working_dir == "":
+        run_local_locust(feature)
+
+    elif working_dir == "/vagrant/":
+        run_vagrant_locust(feature)
+
+    else:
+        click.echo(click.style(f"Unrecognized WORKING_DIR: {working_dir}", fg="red"))
+
+
+@click.command("locust:stop", help="Stops the Locust container if it is running.")
+def stop():
+    working_dir = os.getenv("WORKING_DIR", "")
+
+    def stop_local_locust():
+        """Stop Locust process in the local environment."""
+        click.echo("Stopping Locust in local environment...")
+        for proc in psutil.process_iter(["pid", "name"]):
+            if proc.info["name"] == "locust":
+                click.echo(f"Stopping Locust process with PID {proc.info['pid']}...")
+                os.kill(proc.info["pid"], signal.SIGTERM)
+
+    def stop_docker_locust():
+        # Swallow docker's own stderr: with no container running it printed
+        # "Error response from daemon: No such container" twice, which reads
+        # like a failure when there is simply nothing to stop.
+        running = subprocess.run(
+            ["docker", "ps", "-aq", "-f", "name=^locust_container$"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+        if not running:
+            click.echo("No Locust container is running.")
+            return
+
+        click.echo("Stopping Locust container...")
+        subprocess.run(["docker", "stop", "locust_container"], capture_output=True)
+        subprocess.run(["docker", "rm", "locust_container"], capture_output=True)
+        click.echo(click.style("Locust container stopped and removed.", fg="green"))
+
+    if working_dir == "/workspace/":
+        stop_docker_locust()
+
+    elif working_dir == "" or working_dir == "/vagrant/":
+        stop_local_locust()
+
+    else:
+        click.echo(click.style(f"Unrecognized WORKING_DIR: {working_dir}", fg="red"))
