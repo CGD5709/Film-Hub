@@ -104,3 +104,32 @@ Este documento recoge la asignación autónoma, el desglose técnico y el mapa m
 | **Juan Felipe Pardo (QA)** | `#178` Core Film-Hub + `#200` 2FA/TOTP | 1 Mandatory (Core) + 1 High | `#188`, `#202`, `#178` (Bloque UI) |
 | **José Vicente Sánchez (PM)** | `#188` Admin Roles + `#178` Filtros/Seeders | 1 Medium + Apoyo Mandatory | `#177`, `#200` |
 | **Adrián Muñoz (Frontend)** | `#213` Embeddable Badge + `#178` UI Film-Hub | 1 Medium + UI Mandatory | `#178` (Bloque Filtros) |
+
+---
+
+## Planificación Unificada: Tareas de Mejora Post-Revisión (`T0`-`T10`)
+
+Tras la sesión de revisión en clase del `23/11/2026` (véase el [Acta de Reunión](diario_equipo/acta_reunion_2026_11_23.md)), el equipo incorpora 11 tareas atómicas de proceso, CI/CD, seguridad, pruebas y documentación cuya especificación completa (cuerpos de issue, pasos técnicos y plantillas de comentarios) figura en [Plan de Acción y Reparto de Mejoras](plan_accion_mejoras.md).
+
+| ID | Título Resumido | Responsable (`Assignee`) | Revisor Pre-Merge | Rama / Tipo |
+| :---: | :--- | :--- | :--- | :--- |
+| **T0** | Acta de revisión (23/11/2026), plan unificado de WIs y mejoras | Juan Felipe (`@jfpaardoo`) | `@CGD5709` | `docs/plan-unificado-tareas` |
+| **T1** | Rulesets (`main` y `trunk`) + hacer público el Project | José Vicente (`@CGD5709`) | `@LuisLucena5` | *(Configuración GitHub UI)* |
+| **T2** | Guía de issues, labels, assignees, comentarios y reglas Git | José Vicente (`@CGD5709`) | `@adriaradillam` | `docs/guia-issues-y-tablero` |
+| **T3** | Normalizar issues `#1`-`#8` y desglosar sub-issues de WIs pendientes | José Vicente (`@CGD5709`) | `@adriaradillam` | *(Gestión GitHub / Tablero)* |
+| **T4** | Workflows `CI_branches.yml`, `CI_commits.yml` (`#id`) y `CI_full.yml` (`trunk`) | Luis Lucena (`@LuisLucena5`) | `@jfpaardoo` | `ci/workflows-branches-commits` |
+| **T5** | Workflow reutilizable (`workflow_call`), SBOM (Syft/licencias) y Release `v1.0.0` | Luis Lucena (`@LuisLucena5`) | `@jfpaardoo` | `ci/release-sbom-and-reusable` |
+| **T6** | Verificar despliegue PRE (`trunk`) y aprobación CD Render (`main`) | Luis Lucena (`@LuisLucena5`) | `@CGD5709` | `ci/verify-render-pre-prod` |
+| **T7** | Plantillas de issues (estructura actual), `AGENTS.md` y ciclo de bugs `#188` | Juan Felipe (`@jfpaardoo`) | `@adriaradillam` | `chore/issue-templates-and-agents` |
+| **T8** | Workflow de seguridad (`CI_security.yml`: Gitleaks + `pip-audit`) y cobertura | Juan Felipe (`@jfpaardoo`) | `@LuisLucena5` | `ci/security-gitleaks-and-audit` |
+| **T9** | Alinear `Metodologia_CI-CD.md` (Cap. 2 y 4) y actualizar índice `docs/README.md` | Adrián Muñoz (`@adriaradillam`) | `@CGD5709` | `docs/align-cicd-and-readme` |
+| **T10** | Validar DevContainer (Práctica 4) y pruebas Locust pre-release `v1.0.0` | Adrián Muñoz (`@adriaradillam`) | `@jfpaardoo` | `chore/verify-devcontainer-and-locust` |
+
+### Balance Global Unificado (WIs + Mejoras `T0`-`T10`)
+
+| Integrante | WIs Asignados | Tareas de Mejora | Revisiones WIs | Revisiones Mejoras | Total Revisiones |
+| :--- | :--- | :---: | :--- | :---: | :---: |
+| **José Vicente (`@CGD5709`)** | `#188` (Hecho), `#178` (2.C) | T1, T2, T3 | `#177`, `#200` | T0, T6, T9 | **5** |
+| **Luis Lucena (`@LuisLucena5`)** | `#177`, `#202` | T4, T5, T6 | `#178` (2.A), `#213` | T1, T8 | **4** |
+| **Juan Felipe (`@jfpaardoo`)** | `#178` (2.A Hecho), `#200` | T0, T7, T8 | `#188`, `#202`, `#178` (2.B) | T4, T5, T10 | **6** |
+| **Adrián Muñoz (`@adriaradillam`)** | `#213`, `#178` (2.B) | T9, T10 | `#178` (2.C) | T2, T3, T7 | **4** |
