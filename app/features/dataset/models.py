@@ -99,6 +99,32 @@ class DataSet(db.Model):
             return f"https://zenodo.org/record/{self.ds_meta_data.deposition_id}"
         return None
 
+    def get_zenodo_record_url(self):
+        """Build the Zenodo record URL from ``ZENODO_API_URL``.
+
+        If ``ZENODO_API_URL`` points to fakenodo (or any other host), the link
+        will reflect that instead of being hardcoded to zenodo.org/sandbox.
+        Falls back to sandbox.zenodo.org when the variable is not set.
+        """
+        import os
+
+        dep_id = getattr(self.ds_meta_data, "deposition_id", None)
+        if not dep_id:
+            return None
+
+        api_url = os.getenv("ZENODO_API_URL", "")
+        if api_url:
+            # Strip the API path to get the base origin:
+            # e.g. "http://localhost:5000/fakenodo/api/deposit/depositions"
+            #   → "http://localhost:5000/fakenodo"
+            base = api_url.rstrip("/").split("/api/deposit/depositions")[0]
+            return f"{base}/records/{dep_id}"
+
+        flask_env = os.getenv("FLASK_ENV", "development")
+        if flask_env == "production":
+            return f"https://zenodo.org/records/{dep_id}"
+        return f"https://sandbox.zenodo.org/records/{dep_id}"
+
     def get_files_count(self):
         return sum(len(fm.files) for fm in self.feature_models)
 
