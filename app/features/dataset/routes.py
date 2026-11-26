@@ -146,7 +146,7 @@ def subdomain_index(doi):
     user_cookie = ds_view_record_service.create_cookie(dataset=dataset)
     resp = make_response(
         render_template(
-            "dataset/view_dataset.html",
+            dataset.view_template(),
             dataset=dataset,
             badge_url=badge_url,
             badge_markdown=badge_snippets["markdown"],
@@ -168,4 +168,4 @@ def get_unsynchronized_dataset(dataset_id):
     if not dataset:
         abort(404)
 
-    return render_template("dataset/view_dataset.html", dataset=dataset)
+    return render_template(dataset.view_template(), dataset=dataset)

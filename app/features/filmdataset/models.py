@@ -28,6 +28,9 @@ class FilmDataset(DataSet):
     def get_file_total_size(self):
         return self.file_size or 0
 
+    def view_template(self) -> str:
+        return "filmdataset/view_filmdataset.html"
+
     def to_dict(self):
         data = super().to_dict()
         data.update(
