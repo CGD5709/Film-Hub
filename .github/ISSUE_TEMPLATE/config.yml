@@ -1,6 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Guia de Gestion de Incidencias de Film-Hub
-    url: https://github.com/Film-Hub/filmhub/blob/trunk/docs/guia_gestion_y_depuracion_incidencias.md
-    about: Consulta la metodologia de 4 fases antes de reportar un defecto.
-
+  - name: Guía de Gestión de Bugs e Incidencias de Film-Hub
+    url: https://github.com/CGD5709/Film-Hub/blob/trunk/docs/gestion_bugs_e_incidencias.md
+    about: Consulta el procedimiento de reporte y el ciclo de depuración en 4 fases (Capítulo 5 EGC) antes de abrir una incidencia.
