@@ -12,6 +12,8 @@ These tests run against the live application and the seeded development
 database, not the test database.
 """
 
+import uuid
+
 import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -29,10 +31,26 @@ def _configure_file_detector(driver):
         driver.file_detector = LocalFileDetector()
 
 
+def _scroll_and_click(driver, element):
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", element)
+    element.click()
+
+
 def _log_in(driver, host, email="user1@example.com", password="1234"):
     driver.get(f"{host}/login")
     driver.find_element(By.NAME, "email").send_keys(email)
     driver.find_element(By.NAME, "password").send_keys(password)
+    driver.find_element(By.ID, "submit").click()
+    WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href="/logout"]')))
+
+
+def _sign_up_fresh_user(driver, host):
+    unique_email = f"selenium_film_{uuid.uuid4().hex[:8]}@example.com"
+    driver.get(f"{host}/signup/")
+    driver.find_element(By.NAME, "name").send_keys("Selenium")
+    driver.find_element(By.NAME, "surname").send_keys("Tester")
+    driver.find_element(By.NAME, "email").send_keys(unique_email)
+    driver.find_element(By.NAME, "password").send_keys("1234")
     driver.find_element(By.ID, "submit").click()
     WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href="/logout"]')))
 
@@ -98,7 +116,7 @@ def test_filmdataset_upload_valid_csv_and_paginated_preview(tmp_path):
     try:
         _configure_file_detector(driver)
         host = get_host_for_selenium_testing()
-        _log_in(driver, host)
+        _sign_up_fresh_user(driver, host)
         driver.get(f"{host}/filmdataset/upload")
 
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "film_title"))).send_keys(
@@ -115,10 +133,10 @@ def test_filmdataset_upload_valid_csv_and_paginated_preview(tmp_path):
         WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.ID, "film_csv_summary")))
         WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.ID, "film_upload_dataset")))
 
-        driver.find_element(By.ID, "film_agree_checkbox").click()
+        _scroll_and_click(driver, driver.find_element(By.ID, "film_agree_checkbox"))
         upload_btn = driver.find_element(By.ID, "film_upload_button")
         WebDriverWait(driver, 10).until(lambda d: upload_btn.is_enabled())
-        upload_btn.click()
+        _scroll_and_click(driver, upload_btn)
 
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "film-metrics-cards")))
         assert driver.find_element(By.ID, "metric-total-movies").text.strip() == "12"
@@ -129,7 +147,7 @@ def test_filmdataset_upload_valid_csv_and_paginated_preview(tmp_path):
         WebDriverWait(driver, 15).until(lambda d: len(d.find_elements(By.CSS_SELECTOR, "#film-preview-tbody tr")) == 10)
         assert "Page 1 of 2" in driver.find_element(By.ID, "film-preview-page-info").text
 
-        driver.find_element(By.ID, "film-preview-next").click()
+        _scroll_and_click(driver, driver.find_element(By.ID, "film-preview-next"))
         WebDriverWait(driver, 15).until(lambda d: len(d.find_elements(By.CSS_SELECTOR, "#film-preview-tbody tr")) == 2)
         assert "Page 2 of 2" in driver.find_element(By.ID, "film-preview-page-info").text
         assert "Movie 11" in driver.find_element(By.ID, "film-preview-tbody").text

@@ -126,35 +126,31 @@
                     <div class="row g-2 small text-secondary" id="film_csv_metrics_preview"></div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<div class="row" id="film_upload_dataset" style="display: none">
-    <div class="col-12">
-        <hr>
-        <h2 class="h3 mb-3 mt-2">Publish film dataset</h2>
+            <div class="mt-4" id="film_upload_dataset" style="display: none">
+                <hr>
+                <h2 class="h3 mb-3 mt-2">Publish film dataset</h2>
 
-        <div style="padding-left: 2rem">
-            <label class="form-check">
-                <input id="film_agree_checkbox" class="form-check-input" type="checkbox" value="">
-                <span class="form-check-label" style="font-size: 15px">
-                    I agree to have my movie dataset archived and made available according to
-                    <a href="https://en.wikipedia.org/wiki/Open_science" target="_blank">Open Science</a> principles
-                </span>
-            </label>
+                <label class="form-check">
+                    <input id="film_agree_checkbox" class="form-check-input" type="checkbox" value="">
+                    <span class="form-check-label" style="font-size: 15px">
+                        I agree to have my movie dataset archived and made available according to
+                        <a href="https://en.wikipedia.org/wiki/Open_science" target="_blank">Open Science</a> principles
+                    </span>
+                </label>
 
-            <button id="film_upload_button" type="button" class="btn btn-primary mt-2" disabled>
-                <i data-feather="upload" class="center-button-icon"></i>
-                Upload film dataset
-            </button>
+                <button id="film_upload_button" type="button" class="btn btn-primary mt-2" disabled>
+                    <i data-feather="upload" class="center-button-icon"></i>
+                    Upload film dataset
+                </button>
 
-            <div id="film_loading" class="mt-2" style="display: none">
-                <img width="40px" src="{{ url_for('static', filename='gifs/loading.svg') }}" alt="Loading"/>
-                Uploading film dataset, please wait...
+                <div id="film_loading" class="mt-2" style="display: none">
+                    <img width="40px" src="{{ url_for('static', filename='gifs/loading.svg') }}" alt="Loading"/>
+                    Uploading film dataset, please wait...
+                </div>
+
+                <div class="alert alert-danger mt-3" role="alert" id="film_upload_error" style="display: none"></div>
             </div>
-
-            <div class="alert alert-danger mt-3" role="alert" id="film_upload_error" style="display: none"></div>
         </div>
     </div>
 </div>
