@@ -1,0 +1,162 @@
+{% extends "base_template.html" %}
+
+{% block title %}Upload film dataset{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h1 class="h2 mb-0"><b>Upload</b> film dataset</h1>
+    <a href="{{ url_for('dataset.create_dataset') }}" class="btn btn-outline-secondary btn-sm">
+        <i data-feather="layers" class="center-button-icon"></i>
+        Switch to UVL upload
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
+        <div id="film_basic_info_form">
+            {{ form.hidden_tag() }}
+
+            <div class="row">
+                <div class="col-12">
+                    <h2 class="h3 mb-3">Basic info</h2>
+
+                    <div class="row" style="padding-left: 2rem">
+                        <div class="col-lg-6 col-xs-12 col-md-12">
+                            <div class="mb-3">
+                                {{ form.title.label(class="form-label") }} *
+                                {{ form.title(class="form-control", id="film_title") }}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                {{ form.desc.label(class="form-label") }} *
+                                {{ form.desc(rows=4, class="form-control", id="film_desc") }}
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 col-6">
+                            <div class="mb-3">
+                                {{ form.publication_type.label(class="form-label") }}
+                                {{ form.publication_type(class="form-control", id="film_publication_type") }}
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 col-6">
+                            <div class="mb-3">
+                                {{ form.publication_doi.label(class="form-label") }}
+                                {{ form.publication_doi(class="form-control", id="film_publication_doi") }}
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <div class="mb-3">
+                                {{ form.tags.label(class="form-label") }}
+                                {{ form.tags(class="form-control", id="film_tags") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="h3 mb-3 mt-4">Authors</h2>
+
+                    <div class="row" style="padding-left: 2rem">
+                        <div class="col-lg-6 col-12 mb-3">
+                            <label class="form-label">Author name</label>
+                            <input class="form-control" disabled
+                                   value="{{ current_user.profile.surname }}, {{ current_user.profile.name }}">
+                        </div>
+
+                        <div class="col-lg-6 col-12 mb-3">
+                            <label class="form-label">Author affiliation</label>
+                            <input class="form-control" disabled
+                                   value="{{ current_user.profile.affiliation }}">
+                        </div>
+
+                        <div class="col-lg-6 col-12 mb-3">
+                            <label class="form-label">Author ORCID</label>
+                            <input class="form-control" disabled
+                                   value="{{ current_user.profile.orcid }}">
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <div id="film_authors"></div>
+                                <button type="button" class="btn btn-secondary" id="film_add_author">
+                                    Add author
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
+        <h2 class="h3 mb-2 mt-2">Film CSV file</h2>
+        <p class="text-muted small mb-3" style="padding-left: 2rem">
+            Upload a UTF-8 <code>.csv</code> file (RFC 4180) with required columns
+            <code>title</code>, <code>year</code>, <code>genre</code> and optional
+            <code>rating</code>, <code>duration</code>.
+        </p>
+
+        <div id="film_uploaded_csv_form" style="padding-left: 2rem">
+            <form action="{{ url_for('filmdataset.upload_csv') }}" class="dropzone" id="filmDropzone">
+                <div class="dz-message" data-dz-message>
+                    <span>Drop your <b>.csv</b> movie dataset here or click to browse</span>
+                </div>
+            </form>
+
+            <input type="hidden" id="csv_filename" name="csv_filename" value="">
+
+            <div class="alert alert-danger mt-3" role="alert" id="film_csv_errors" style="display: none;"></div>
+
+            <div class="card mt-3" id="film_csv_summary" style="display: none;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <i data-feather="check-circle" class="text-success me-1"></i>
+                            <strong id="film_csv_filename_label"></strong>
+                        </div>
+                        <button type="button" class="btn btn-outline-danger btn-sm" id="film_delete_csv_btn">
+                            Delete CSV
+                        </button>
+                    </div>
+                    <div class="row g-2 small text-secondary" id="film_csv_metrics_preview"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" id="film_upload_dataset" style="display: none">
+    <div class="col-12">
+        <hr>
+        <h2 class="h3 mb-3 mt-2">Publish film dataset</h2>
+
+        <div style="padding-left: 2rem">
+            <label class="form-check">
+                <input id="film_agree_checkbox" class="form-check-input" type="checkbox" value="">
+                <span class="form-check-label" style="font-size: 15px">
+                    I agree to have my movie dataset archived and made available according to
+                    <a href="https://en.wikipedia.org/wiki/Open_science" target="_blank">Open Science</a> principles
+                </span>
+            </label>
+
+            <button id="film_upload_button" type="button" class="btn btn-primary mt-2" disabled>
+                <i data-feather="upload" class="center-button-icon"></i>
+                Upload film dataset
+            </button>
+
+            <div id="film_loading" class="mt-2" style="display: none">
+                <img width="40px" src="{{ url_for('static', filename='gifs/loading.svg') }}" alt="Loading"/>
+                Uploading film dataset, please wait...
+            </div>
+
+            <div class="alert alert-danger mt-3" role="alert" id="film_upload_error" style="display: none"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

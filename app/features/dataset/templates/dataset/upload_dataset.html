@@ -4,7 +4,11 @@
 
 {% block content %}
 
-    <h1 class="h2 mb-3"><b>Upload</b> dataset</h1>
+    <h1 class="h2 mb-2"><b>Upload</b> dataset</h1>
+    <p class="text-muted mb-3">
+        Looking to publish a movie CSV catalog?
+        <a href="{{ url_for('filmdataset.create_filmdataset') }}">Upload a Film-Hub CSV dataset</a>.
+    </p>
 
     <div class="row">
         <div class="col-12 mb-3">
