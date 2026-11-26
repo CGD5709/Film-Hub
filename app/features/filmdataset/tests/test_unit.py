@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.features.dataset.models import DataSet
+from app.features.filmdataset.models import FilmDataset
 from app.features.filmdataset.services import FilmMetricsService
 from app.features.filmdataset.validator import FilmCSVValidator
 
@@ -145,3 +147,8 @@ def test_metrics_service_handles_multi_genres_vote_average_and_missing_ratings()
 
     no_rating = FilmMetricsService.compute([{"title": "C", "year": "2010", "genre": "Comedy"}])
     assert no_rating["avg_rating"] is None
+
+
+def test_view_template_uses_polymorphic_film_template():
+    assert DataSet.view_template(None) == "dataset/view_dataset.html"
+    assert FilmDataset.view_template(None) == "filmdataset/view_filmdataset.html"
