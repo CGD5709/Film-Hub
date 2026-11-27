@@ -97,6 +97,13 @@ chico sundermann">
                         </a>
                     </li>
 
+                    <li class="sidebar-item {{ 'active' if request.endpoint == 'filmdataset.create_filmdataset' else '' }}">
+                        <a class="sidebar-link" href="{{ url_for('filmdataset.create_filmdataset') }}">
+                            <i class="align-middle" data-feather="film"></i> <span
+                                class="align-middle">Upload film dataset</span>
+                        </a>
+                    </li>
+
                     <li class="sidebar-item {{ 'active' if request.endpoint == 'dataset.list_dataset' else '' }}">
                         <a class="sidebar-link" href="{{ url_for('dataset.list_dataset') }}">
                             <i class="align-middle" data-feather="list"></i> <span

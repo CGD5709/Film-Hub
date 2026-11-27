@@ -1,6 +1,6 @@
 import uuid
 
-from flask import abort, jsonify, make_response, render_template, request, send_from_directory
+from flask import abort, jsonify, make_response, render_template, request, send_from_directory, url_for
 from flask_login import current_user, login_required
 
 from app.features.dataset.services import DataSetService, DSDownloadRecordService
@@ -14,13 +14,14 @@ dataset_service = DataSetService()
 
 @filmdataset_bp.route("/filmdataset", methods=["GET"])
 def index():
-    return render_template("filmdataset/index.html")
+    datasets = filmdataset_service.repository.latest_synchronized(limit=20)
+    return render_template("filmdataset/index.html", datasets=datasets)
 
 
 @filmdataset_bp.route("/filmdataset/upload", methods=["GET"])
 @login_required
 def create_filmdataset():
-    return render_template("filmdataset/index.html", form=FilmdatasetForm())
+    return render_template("filmdataset/upload_filmdataset.html", form=FilmdatasetForm())
 
 
 @filmdataset_bp.route("/filmdataset/upload", methods=["POST"])
@@ -33,7 +34,13 @@ def upload_filmdataset():
     result = filmdataset_service.upload_dataset(form=form, current_user=current_user)
     payload = {"message": result["message"]}
     if "dataset_id" in result:
-        payload["dataset_id"] = result["dataset_id"]
+        dataset_id = result["dataset_id"]
+        payload["dataset_id"] = dataset_id
+        dataset = filmdataset_service.get_or_404(dataset_id)
+        if dataset.ds_meta_data.dataset_doi:
+            payload["dataset_url"] = url_for("dataset.subdomain_index", doi=dataset.ds_meta_data.dataset_doi)
+        else:
+            payload["dataset_url"] = url_for("dataset.get_unsynchronized_dataset", dataset_id=dataset_id)
     return jsonify(payload), result["code"]
 
 

@@ -7,7 +7,7 @@ import pytest
 
 from app.features.auth.repositories import UserRepository
 from app.features.dataset.models import PublicationType
-from app.features.dataset.repositories import DSDownloadRecordRepository, DSMetaDataRepository
+from app.features.dataset.repositories import DataSetRepository, DSDownloadRecordRepository, DSMetaDataRepository
 from app.features.filmdataset.models import FilmDataset
 from app.features.filmdataset.repositories import FilmdatasetRepository
 
@@ -40,7 +40,13 @@ def test_filmdataset_index_and_upload_page_auth(test_client):
     assert "/login" in anon.headers["Location"]
 
     _signup(test_client)
-    assert test_client.get("/filmdataset/upload").status_code == 200
+    upload_page = test_client.get("/filmdataset/upload")
+    assert upload_page.status_code == 200
+    upload_html = upload_page.get_data(as_text=True)
+    assert "filmDropzone" in upload_html
+    assert "csv_filename" in upload_html
+    assert "film_csv_errors" in upload_html
+    assert "film_upload_button" in upload_html
 
 
 def test_temp_csv_upload_and_delete_endpoints(test_client, monkeypatch, tmp_path):
@@ -109,13 +115,33 @@ def test_end_to_end_upload_preview_and_download_flow(test_client, monkeypatch, t
             },
         )
     assert create_resp.status_code == 200
-    dataset_id = create_resp.get_json()["dataset_id"]
+    create_payload = create_resp.get_json()
+    dataset_id = create_payload["dataset_id"]
+    assert create_payload["dataset_url"].endswith("/doi/10.5281/zenodo.filmhub.77/")
 
     with test_client.application.app_context():
         persisted = FilmdatasetRepository().get_by_id(dataset_id)
         assert isinstance(persisted, FilmDataset)
         assert persisted.user_id == user_id
         assert persisted.total_movies == 3
+
+    # Detail page uses Film-Hub template with metrics and preview container, keeping common blocks
+    detail_resp = test_client.get("/doi/10.5281/zenodo.filmhub.77/")
+    assert detail_resp.status_code == 200
+    detail_html = detail_resp.get_data(as_text=True)
+    assert "film-metrics-cards" in detail_html
+    assert "film-preview-section" in detail_html
+    assert f"/filmdataset/{dataset_id}/preview" in detail_html
+    assert "1972 - 2010" in detail_html
+    assert "Crime" in detail_html
+    assert "movies.csv" in detail_html
+    assert "Embed badge" in detail_html
+    assert "UVL models" not in detail_html
+
+    # Film catalog index lists the published film dataset
+    catalog_resp = test_client.get("/filmdataset")
+    assert catalog_resp.status_code == 200
+    assert "Integration Film Dataset" in catalog_resp.get_data(as_text=True)
 
     # Preview works with pagination for synchronized dataset
     preview = test_client.get(f"/filmdataset/{dataset_id}/preview?page=1&per_page=2")
@@ -161,8 +187,13 @@ def test_unsynchronized_preview_is_private_to_owner(test_client, monkeypatch, tm
         )
     dataset_id = resp.get_json()["dataset_id"]
 
-    # Owner can preview unsynchronized dataset
+    # Owner can preview unsynchronized dataset and view its film detail page
     assert test_client.get(f"/filmdataset/{dataset_id}/preview").status_code == 200
+    unsync_view = test_client.get(f"/dataset/unsynchronized/{dataset_id}/")
+    assert unsync_view.status_code == 200
+    unsync_html = unsync_view.get_data(as_text=True)
+    assert "Private Draft" in unsync_html
+    assert "film-preview-section" in unsync_html
 
     # Logout & login as another user -> 404
     test_client.get("/logout", follow_redirects=False)
@@ -177,3 +208,23 @@ def test_unsynchronized_preview_is_private_to_owner(test_client, monkeypatch, tm
         ds = FilmdatasetRepository().get_by_id(dataset_id)
         DSMetaDataRepository().update(ds.ds_meta_data_id, dataset_doi="10.1234/public-now")
     assert test_client.get(f"/filmdataset/{dataset_id}/preview").status_code == 200
+
+
+def test_uvl_detail_view_keeps_original_layout_without_film_blocks(test_client):
+    user_id = _signup(test_client, email="uvl_owner@example.com")
+    with test_client.application.app_context():
+        meta = DSMetaDataRepository().create(
+            title="UVL Regression Dataset",
+            description="Classic UVL dataset",
+            publication_type=PublicationType.SOFTWARE_DOCUMENTATION,
+            dataset_doi="10.1234/uvl-regression",
+            tags="uvl",
+        )
+        DataSetRepository().create(user_id=user_id, ds_meta_data_id=meta.id)
+
+    resp = test_client.get("/doi/10.1234/uvl-regression/")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "UVL models" in body
+    assert "film-preview-section" not in body
+    assert "film-metrics-cards" not in body

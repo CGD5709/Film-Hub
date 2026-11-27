@@ -1,10 +1,70 @@
 {% extends "base_template.html" %}
 
-{% block title %}View filmdataset{% endblock %}
+{% block title %}Film-Hub Catalog{% endblock %}
 
 {% block content %}
 
-{% endblock %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h1 class="h2 mb-0"><b>Film-Hub</b> catalog</h1>
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('filmdataset.create_filmdataset') }}" class="btn btn-primary btn-sm">
+        <i data-feather="upload" class="center-button-icon"></i>
+        Upload film dataset
+    </a>
+    {% endif %}
+</div>
 
-{# This feature's script is declared with register_asset in __init__.py and
-   rendered by base_template.html, so there is no script tag here. #}
+{% if datasets %}
+<div class="row g-3">
+    {% for dataset in datasets %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                    <h2 class="h4 mb-0">
+                        <a href="{{ dataset.get_uvlhub_doi() }}">{{ dataset.ds_meta_data.title }}</a>
+                    </h2>
+                    <span class="badge bg-secondary">{{ dataset.get_cleaned_publication_type() }}</span>
+                </div>
+                <p class="card-text text-secondary">{{ dataset.ds_meta_data.description }}</p>
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="badge bg-primary">{{ dataset.total_movies }} movies</span>
+                    {% if dataset.min_year is not none and dataset.max_year is not none %}
+                    <span class="badge bg-dark">{{ dataset.min_year }} - {{ dataset.max_year }}</span>
+                    {% endif %}
+                    {% if dataset.primary_genre %}
+                    <span class="badge bg-info text-dark">{{ dataset.primary_genre }}</span>
+                    {% endif %}
+                    {% if dataset.avg_rating is not none %}
+                    <span class="badge bg-warning text-dark">Rating {{ "%.2f"|format(dataset.avg_rating) }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ dataset.get_uvlhub_doi() }}" class="btn btn-outline-primary btn-sm">
+                        <i data-feather="eye" class="center-button-icon"></i>
+                        View dataset
+                    </a>
+                    <a href="{{ url_for('filmdataset.download_filmdataset', dataset_id=dataset.id) }}" class="btn btn-outline-secondary btn-sm">
+                        <i data-feather="download" class="center-button-icon"></i>
+                        Download ({{ dataset.get_file_total_size_for_human() }})
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <h2 class="h5 card-title">No film datasets published yet</h2>
+        <p class="card-text text-secondary mb-0">
+            Upload a validated <code>.csv</code> movie catalog to start populating Film-Hub.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
